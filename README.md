@@ -1,5 +1,7 @@
 # interaction_actions_for_navigation
 
+![Ian illustration](https://github.com/ethz-asl/interaction_actions_for_navigation/blob/master/ian_toy_example.png "IAN Illustration")
+
 ## Install
 
 install [ROS](http://wiki.ros.org/melodic/Installation/Ubuntu)
