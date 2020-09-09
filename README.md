@@ -107,6 +107,8 @@ cd ~/IAN/ian_ws/src
 cd ~/IAN/ian_ws
 catkin build pedsim_visualizer pedsim_simulator spencer_tracking_rviz_plugin
 catkin build gmapping map_matcher
-catkin build asl_pepper_gmapping asl_pepper_2d_simulator
-catkin build pylidar2d_ros ia_ros responsive
+catkin build pylidar2d_ros responsive
+catkin build asl_pepper_gmapping asl_pepper_2d_simulator asl_pepper_sensor_preprocessing asl_pepper_motion_planning
+catkin build frame_msgs
+catkin build ia_ros
 ```
