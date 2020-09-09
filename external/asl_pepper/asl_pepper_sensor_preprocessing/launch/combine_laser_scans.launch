@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="output" default="log" />
+
+  <node pkg="asl_pepper_sensor_preprocessing" type="combine_laser_scans" name="combine_laser_scans" output="$(arg output)">
+    <remap from="scan1" to="/sick_laser_front/filtered"/>
+    <remap from="scan2" to="/sick_laser_rear/filtered"/>
+  </node>
+</launch>

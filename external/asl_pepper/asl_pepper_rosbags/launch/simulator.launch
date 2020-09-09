@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>	
+
+<launch>
+  <arg name="mapname" />
+  <arg name="mapfolder" />
+
+  <include file="$(find asl_pepper_2d_simulator)/launch/pepper_2d_simulator.launch">
+    <arg name="mapname" value="$(arg mapname)"   />
+    <arg name="mapfolder" value="$(arg mapfolder)"  />
+  </include>
+</launch>
+
+
+

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <param name="use_sim_time" value="true" />
+
+  <include file="$(find pepper_description)/launch/pepper_upload.launch" >
+  </include>
+
+  <node pkg="rosbag" type="play" name="player" output="screen" args="--clock $(env HOME)/rosbags/merged_demo2.bag"/>
+</launch>

@@ -1,0 +1,37 @@
+<launch>
+  <arg name="mapname" default="office_full" />
+  <arg name="mapfolder" default="$(find asl_pepper_motion_planning)/scripts" />
+
+  <!-- Localization: gmapping & map_matcher -->
+  <include file="$(find asl_pepper_gmapping)/launch/gmapping.launch">
+    <arg name="output" value="log"/>
+  </include>
+  <include file="$(find map_matcher)/launch/map_matcher.launch">
+    <arg name="output" value="log"/>
+    <arg name="slam_map_topic" value="/gmap"/>
+    <arg name="reference_map_name" value="$(arg mapname)"/>
+    <arg name="maps_folder" value="$(arg mapfolder)"/>
+  </include>
+
+
+  <!-- Framesoft tracking -->
+  <include file="$(find rwth_crowdbot_launch)/launch/rwth_crowdbot_launch.launch">
+  </include>
+
+  <!-- Convert obstacles -->
+  <node pkg="asl_pepper_move_base" type="obstacles_converter" name="obstacles_converter" output="log" />
+
+  <!-- move_base -->
+  <node pkg="move_base" type="move_base" respawn="true" name="move_base" output="screen">
+   <remap from="map" to="gmap"/>
+   <rosparam file="$(find asl_pepper_move_base)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+   <rosparam file="$(find asl_pepper_move_base)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+   <rosparam file="$(find asl_pepper_move_base)/params/local_costmap_params.yaml" command="load" />
+   <rosparam file="$(find asl_pepper_move_base)/params/global_costmap_params.yaml" command="load" /> 
+   <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+   <param name="controller_frequency" value="10.0" />
+   <rosparam file="$(find asl_pepper_move_base)/params/base_local_planner_params.yaml" command="load" />
+  </node>
+
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(env HOME)/.rviz/move_base.rviz" output="log"/>
+</launch> 

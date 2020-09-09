@@ -1,0 +1,470 @@
+#!/usr/bin/env python
+import time
+import datetime
+import numpy as np
+from matplotlib import pyplot as plt
+from timeit import default_timer as timer
+import pickle
+import os
+import threading
+import traceback
+import Tkinter as tk
+from itertools import cycle
+
+from cia import unserialize_cstate, unserialize_fixedstate
+from pyIA import ia_planning
+
+
+N_TRIALS_POSSIBILITIES = cycle([1000, 100, 10, 10000])
+
+def stamp_filename_to_time_in_secs(path):
+    time = np.nan
+    try:
+        file = os.path.split(path)[1]
+        secs, nsecs = file.split('.')[0].split('_')
+        time = int(secs) + 0.0000000001 * int(nsecs)
+    except (ValueError, IndexError):
+        pass
+    return time
+
+class IADashboard(object):
+    def __init__(self, args):
+        self.look_for_logs_in = args.logdir
+        # VARIABLES -------------
+        self.lock = threading.Lock()
+        self.exit_threads = False
+        # Directory selector vars
+        self.selected_ialogdir = None
+        self.av_planning_logs = []
+        self.sel_planning_log = None
+        # Vars
+        self.N_TRIALS = N_TRIALS_POSSIBILITIES.next()
+        # GUI state vars
+        self.LIVE = True
+        self.VIZ_PLANNING = {
+            "crowdedness": True,
+            "permissivity": True,
+            "infer_plan": False,  # this one gets consumed upon set to true
+        }
+        self.UPDATE_CANVAS = None
+        self.canvas_ticks = {}
+        # Visualization vars
+        self.figs = {}
+        self.VIZ_UPDATE = True
+        # start app -------------
+        threading.Thread(target=self.fetch_logfiles_routine).start()
+        self.create_gui()
+        plt.ion()
+        while True:
+            try:
+                if self.UPDATE_CANVAS is not None:
+                    with self.lock:
+                        self.update_canvas(self.UPDATE_CANVAS)
+                        self.UPDATE_CANVAS = None
+                self.tk_root.update()
+                self.refresh_dashboard()
+            except KeyboardInterrupt:
+                traceback.print_exc()
+                break
+            except (tk.TclError, ValueError) as e:
+                traceback.print_exc()
+                if "invalid command name" in e.message:
+                    break
+                # error might be caused by closed figure. handle appropriately.
+                with self.lock:
+                    for name in self.figs:
+                        plt.close(self.figs[name])
+                    self.figs = {}
+                    self.VIZ_UPDATE = True
+                continue
+        self.exit_threads = True
+
+    def create_gui(self):
+        self.tk_root = tk.Tk()
+        self.tk_root.title("IA Planning Dashboard")
+
+        # Add a grid
+        mainframe = tk.Frame(self.tk_root)
+        mainframe.grid(column=0, row=0, sticky=(tk.N, tk.W, tk.E, tk.S))
+        mainframe.columnconfigure(2, weight=1)
+        mainframe.columnconfigure(3, weight=1)
+        mainframe.columnconfigure(4, weight=1)
+#         mainframe.rowconfigure(0, weight=1)
+        mainframe.pack(pady=50, padx=50)
+
+        # dropdown -----------------------------------------------------------
+        # Create a Tkinter variable
+        selected_ialogdir_var = tk.StringVar(self.tk_root)
+
+        # usually the dashboard is started at the same time as the log-creating node.
+        # wait a second for the node to create the log directory.
+        time.sleep(1.)
+        choices = self.fetch_ialogdirs()
+        if not choices:
+            raise ValueError("no directories found")
+
+        popupMenu = tk.OptionMenu(mainframe, selected_ialogdir_var, *choices)
+        tk.Label(mainframe, text="logged runs:").grid(row=1, column=2, columnspan=3)
+        popupMenu.grid(row=2, column=2, columnspan=3)
+
+        def update_dropdown(*args):
+            choices = self.fetch_ialogdirs()
+            menu = popupMenu["menu"]
+            menu.delete(0, "end")
+            for string in choices:
+                menu.add_command(label=os.path.split(string)[-1],
+                                 command=lambda value=string: selected_ialogdir_var.set(value))
+
+        update_dropdown()
+
+        # on change dropdown value
+        def change_dropdown(*args):
+            self.selected_ialogdir = selected_ialogdir_var.get()
+            self.upon_ialogdir_reset()
+
+        # link function to change dropdown
+        selected_ialogdir_var.trace('w', change_dropdown)
+        popupMenu.bind("<Button-1>", update_dropdown)
+        selected_ialogdir_var.set(self.selected_ialogdir)  # set the default option
+
+        # button -----------------------------------------------------
+        def on_press_play():
+            self.LIVE = True
+        play_button = tk.Button(mainframe, text='|>', command=on_press_play)
+        play_button.grid(row=3, column=5)
+
+        def on_press_pause():
+            self.LIVE = False
+        pause_button = tk.Button(mainframe, text='||', command=on_press_pause)
+        pause_button.grid(row=3, column=1)
+
+        def on_press_next():
+            with self.lock:
+                i = 0
+                for i in range(len(self.av_planning_logs)):
+                    if self.sel_planning_log == self.av_planning_logs[i]:
+                        break
+                if i == len(self.av_planning_logs)-1:
+                    return
+                self.sel_planning_log = self.av_planning_logs[i+1]
+                self.VIZ_UPDATE = True
+                self.LIVE = False
+        next_button = tk.Button(mainframe, text='>', command=on_press_next)
+        next_button.grid(row=3, column=6)
+
+        def on_press_prev():
+            i = 0
+            with self.lock:
+                for i in range(len(self.av_planning_logs)):
+                    if self.sel_planning_log == self.av_planning_logs[i]:
+                        break
+                if i == 0:
+                    return
+                self.sel_planning_log = self.av_planning_logs[i-1]
+                self.VIZ_UPDATE = True
+                self.LIVE = False
+        prev_button = tk.Button(mainframe, text='<', command=on_press_prev)
+        prev_button.grid(row=3, column=0)
+
+        # slider ------------------------------------------------------------
+        SLIDER_PAD = 10
+        SLIDER_WIDTH = 1024
+        CANVAS_WIDTH = SLIDER_WIDTH + 2*SLIDER_PAD
+        SLIDER_HEIGHT = 10
+        METER_PORTION = 1./4.  # a 4th of the slider width
+        METER_WIDTH = int(SLIDER_WIDTH * METER_PORTION)
+        MCANVAS_WIDTH = METER_WIDTH + 2*SLIDER_PAD
+
+        canvas = tk.Canvas(mainframe, width=CANVAS_WIDTH, height=SLIDER_HEIGHT)
+        canvas.grid(row=3, column=2, columnspan=3)
+        sliderlabel_var = tk.StringVar()
+        sliderlabel = tk.Label(mainframe, textvariable=sliderlabel_var)
+        sliderlabel.grid(row=4, column=3)
+
+        def callback(event):
+            if False:
+                print("clicked at {} {}".format(event.x, event.y))
+            with self.lock:
+                closest_px = np.inf
+                for px in self.canvas_ticks:
+                    if np.abs(event.x - px) < np.abs(event.x - closest_px):
+                        closest_px = px
+                if closest_px != np.inf:
+                    self.sel_planning_log = self.canvas_ticks[closest_px]
+                    self.LIVE = False
+                    self.VIZ_UPDATE = True
+
+        def update_canvas(planning_logs):
+            canvas.delete(tk.ALL)
+            # line
+            canvas_width = canvas.winfo_width()
+            slider_width = canvas_width - 2*SLIDER_PAD
+            mcanvas_width = mcanvas.winfo_width()
+            meter_width = mcanvas_width - 2*SLIDER_PAD
+            meter_portion = 1. * meter_width / canvas_width
+            canvas.create_rectangle(SLIDER_PAD, SLIDER_HEIGHT/2, canvas_width-SLIDER_PAD, SLIDER_HEIGHT/2)
+            # ticks
+            canvas_ticks = {}
+            if planning_logs:
+                times = [stamp_filename_to_time_in_secs(file) for file in planning_logs]
+                min_t = np.min(times)
+                max_t = np.max(times)
+                for i in range(len(planning_logs)):
+                    file = planning_logs[i]
+                    time = times[i]
+                    if (max_t - min_t) == 0:
+                        px = SLIDER_PAD + slider_width
+                    else:
+                        px = SLIDER_PAD + slider_width * (time - min_t) / (max_t - min_t)
+                    canvas.create_line(px, 0, px, SLIDER_HEIGHT)
+                    canvas_ticks[px] = file
+            self.canvas_ticks = canvas_ticks
+            # circle & label
+            sliderlabelstr = ""
+            if self.sel_planning_log is not None:
+                time = stamp_filename_to_time_in_secs(self.sel_planning_log)
+                if (max_t - min_t) == 0:
+                    px = SLIDER_PAD + slider_width
+                else:
+                    px = SLIDER_PAD + slider_width * (time - min_t) / (max_t - min_t)
+                r = 3
+                canvas.create_oval(px-r, SLIDER_HEIGHT/2-r, px+r, SLIDER_HEIGHT/2+r, fill="red")
+                stamp = stamp_filename_to_time_in_secs(self.sel_planning_log)
+                sliderlabelstr = datetime.datetime.fromtimestamp(stamp).strftime(
+                    "%H:%M:%S %f")[:-3]
+            if not planning_logs:
+                sliderlabelstr = "No snapshots found."
+            sliderlabel_var.set(sliderlabelstr)
+            # meter
+            mcanvas.delete(tk.ALL)
+            meterlabelstr = ""
+            if planning_logs:
+                mcanvas.create_rectangle(
+                    SLIDER_PAD, SLIDER_HEIGHT/2, mcanvas_width-SLIDER_PAD, SLIDER_HEIGHT+1)
+                meter_val = (max_t - min_t) * meter_portion
+                meterlabelstr = "{:.2f}s".format(meter_val)
+            meterlabel_var.set(meterlabelstr)
+            # buttons
+            if self.LIVE:
+                play_button.config(state=tk.DISABLED)
+                pause_button.config(state=tk.NORMAL)
+            else:
+                play_button.config(state=tk.NORMAL)
+                pause_button.config(state=tk.DISABLED)
+
+        self.update_canvas = update_canvas
+
+        canvas.bind("<Button-1>", callback)
+
+        mcanvas = tk.Canvas(mainframe, width=MCANVAS_WIDTH, height=SLIDER_HEIGHT)
+        mcanvas.grid(row=4, column=2, sticky=tk.W)
+
+        meterlabel_var = tk.StringVar()
+        meterlabel = tk.Label(mainframe, textvariable=meterlabel_var)
+        meterlabel.grid(row=5, column=2)
+
+        # useless, for balance
+        tk.Canvas(mainframe, width=MCANVAS_WIDTH, height=SLIDER_HEIGHT).grid(row=4, column=4)
+
+        # viz buttons --------------------------------------------------------------------
+        def on_press_infer_plan():
+            with self.lock:
+                self.VIZ_PLANNING["infer_plan"] = True
+                self.VIZ_UPDATE = True
+        infer_plan_button = tk.Button(mainframe, text='P', command=on_press_infer_plan)
+        infer_plan_button.grid(row=6, column=0)
+
+        cycle_trials_textvar = tk.StringVar()
+        cycle_trials_textvar.set(str(self.N_TRIALS))
+
+        def on_press_cycle_trials():
+            with self.lock:
+                self.N_TRIALS = N_TRIALS_POSSIBILITIES.next()
+                cycle_trials_textvar.set(str(self.N_TRIALS))
+        cycle_trials_button = tk.Button(
+            mainframe, textvariable=cycle_trials_textvar, command=on_press_cycle_trials)
+        cycle_trials_button.grid(row=6, column=1, sticky=tk.W)
+
+    def fetch_ialogdirs(self):
+        # get run dir
+        dirs = os.listdir(self.look_for_logs_in)
+        dirs = [dir_ for dir_ in dirs if dir_[:11] == "ros_ia_node"]
+        dirs = sorted(dirs)
+        dirs = [os.path.join(self.look_for_logs_in, dir_) for dir_ in dirs]
+        with self.lock:
+            if self.selected_ialogdir is None and dirs:
+                self.selected_ialogdir = dirs[-1]
+        return dirs
+
+    def upon_ialogdir_reset(self):
+        with self.lock:
+            self.av_planning_logs = []
+            self.sel_planning_log = None
+            self.VIZ_UPDATE = True
+
+    def fetch_logfiles_routine(self):
+        while True:
+            time.sleep(0.1)
+            if self.exit_threads:
+                return
+            with self.lock:
+                plogdir = self.selected_ialogdir
+            if plogdir is None:
+                continue
+            # get latest planning log file
+            planninglogdir = os.path.join(plogdir, 'planning')
+            planninglogfiles = sorted(os.listdir(planninglogdir))
+            planninglogfiles = [os.path.join(planninglogdir, file) for file in planninglogfiles]
+            newest_planning_log = None
+            if planninglogfiles:
+                newest_planning_log = planninglogfiles[-1]
+            with self.lock:
+                self.av_planning_logs = planninglogfiles
+                self.UPDATE_CANVAS = planninglogfiles
+                if self.LIVE and self.sel_planning_log != newest_planning_log:
+                    self.sel_planning_log = newest_planning_log
+                    self.VIZ_UPDATE = True
+
+    def load_log(self, attempts_remaining=10):
+        log = None
+        tic = timer()
+        filepath = self.sel_planning_log
+        if filepath is None:
+            return None
+        try:
+            with open(filepath, 'rb') as f:
+                log = pickle.load(f)
+        except (ValueError, EOFError) as e: # noqa
+            # log is still 'hot'
+            time.sleep(0.1)
+            if attempts_remaining != 0:
+                return self.load_log(attempts_remaining=attempts_remaining-1)
+            else:
+                print("all attempts failed.")
+                traceback.print_exc()
+            return None
+        toc = timer()
+        if False:
+            print("read from planning log {} ({}s)".format(filepath, toc-tic))
+        return log
+
+    def refresh_dashboard(self):
+        with self.lock:
+            if self.VIZ_UPDATE:
+                if np.any(self.VIZ_PLANNING.values()):
+                    planning_log = self.load_log()
+                    state_e, fixed_state, possible_actions, optimistic_sequence = \
+                        unserialize_planning_log(planning_log)
+                if self.VIZ_PLANNING["crowdedness"]:
+                    if "planning_crowdedness" not in self.figs:
+                        self.figs["planning_crowdedness"], _ = plt.subplots(2)
+                    fig = self.figs["planning_crowdedness"]
+                    ax1, ax2 = fig.axes
+                    ax1.cla()
+                    ax2.cla()
+                    # Plot
+                    if state_e is not None and fixed_state is not None:
+                        plt.sca(ax1)
+                        ia_planning.visualize_state_feature(state_e, fixed_state, "crowdedness")
+                        ax2.cla()
+                        plt.sca(ax2)
+                        ia_planning.visualize_state_feature(state_e, fixed_state, "crowdedness",
+                                                            hide_uncertain=False, uncertainties=True)
+                    if optimistic_sequence is not None and fixed_state is not None:
+                        plt.sca(ax1)
+                        ia_planning.visualize_sequence_as_path(optimistic_sequence, fixed_state)
+                else:
+                    if "planning_crowdedness" in self.figs:
+                        plt.close(self.figs["planning_crowdedness"])
+                    del self.figs["planning_crowdedness"]
+                if self.VIZ_PLANNING["permissivity"]:
+                    if "planning_permissivity" not in self.figs:
+                        self.figs["planning_permissivity"], _ = plt.subplots(2)
+                    fig = self.figs["planning_permissivity"]
+                    ax1, ax2 = fig.axes
+                    ax1.cla()
+                    ax2.cla()
+                    # Plot
+                    if state_e is not None and fixed_state is not None:
+                        plt.sca(ax1)
+                        ia_planning.visualize_state_feature(state_e, fixed_state, "permissivity")
+                        ax2.cla()
+                        plt.sca(ax2)
+                        ia_planning.visualize_state_feature(state_e, fixed_state, "permissivity",
+                                                            hide_uncertain=False, uncertainties=True)
+                    if optimistic_sequence is not None and fixed_state is not None:
+                        plt.sca(ax1)
+                        ia_planning.visualize_sequence_as_path(optimistic_sequence, fixed_state)
+                else:
+                    if "planning_permissivity" in self.figs:
+                        plt.close(self.figs["planning_permissivity"])
+                    del self.figs["planning_permissivity"]
+                if self.VIZ_PLANNING["infer_plan"]:
+                    if state_e is not None and fixed_state is not None and possible_actions is not None:
+                        try:
+                            tic = timer()
+                            plan_stochastic_tree = ia_planning.StochasticTree()
+                            optimistic_sequence = []
+                            firstfailure_sequence = []
+                            self.debug_byproducts = {'state': state_e, 'fixed_state': fixed_state}
+                            plan_stochastic_tree, optimistic_sequence, firstfailure_sequence = \
+                                ia_planning.plan(state_e, fixed_state, possible_actions,
+                                                 BYPRODUCTS=self.debug_byproducts,
+                                                 n_trials=self.N_TRIALS,
+                                                 DEBUG_IF_FAIL=True)
+                            toc = timer()
+                            print("Planning: {}s ({} trials)".format(toc-tic, self.N_TRIALS))
+                        except Exception:
+                            traceback.print_exc()
+                            pass
+                        try:
+                            ia_planning.visualize_planning_process(
+                                state_e, fixed_state, possible_actions,
+                                plan_stochastic_tree, optimistic_sequence, firstfailure_sequence,
+                                self.debug_byproducts,
+                            )
+                        except Exception:
+                            traceback.print_exc()
+                            raise KeyboardInterrupt
+                    self.VIZ_PLANNING["infer_plan"] = False
+        self.VIZ_UPDATE = False
+        plt.pause(0.1)
+
+
+def unserialize_planning_log(planning_log):
+    state_e = None
+    fixed_state = None
+    possible_actions = None
+    optimistic_sequence = None
+    if planning_log is not None:
+        # unserialize log
+        state_e = unserialize_cstate(planning_log["state_e"])
+        fixed_state = unserialize_fixedstate(planning_log["fixed_state"])
+        possible_actions = planning_log["possible_actions"]
+        optimistic_sequence = planning_log["optimistic_sequence"]
+    return state_e, fixed_state, possible_actions, optimistic_sequence
+
+def parse_args():
+    import argparse
+    # Arguments
+    parser = argparse.ArgumentParser(
+        description='IA dashboard: live and replay visualizations of IA planner logs.')
+    parser.add_argument('--logdir', type=str, default='/tmp',
+                        help='Directory in which to look for logs. defaults to /tmp',)
+
+    ARGS, unknown_args = parser.parse_known_args()
+    # ROS appends some weird args, ignore those, but not the rest
+    if unknown_args:
+        import rospy
+        non_ros_unknown_args = rospy.myargv(unknown_args)
+        if non_ros_unknown_args:
+            print("unknown arguments:")
+            print(non_ros_unknown_args)
+            parser.parse_args(args=["--help"])
+            raise ValueError
+    return ARGS
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    iad = IADashboard(args)

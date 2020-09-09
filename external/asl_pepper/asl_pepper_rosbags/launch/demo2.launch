@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <param name="use_sim_time" value="true" />
+  <node pkg="rosbag" type="play" name="player" output="screen" args="--clock $(env HOME)/rosbags/demo2.bag"/>
+  <include file="$(find pepper_description)/launch/pepper_upload.launch"/>
+
+  <!-- Correct missing rear laserscan -->
+  <node pkg="pointcloud_to_laserscan" type="pointcloud_to_laserscan_node"
+    name="pointcloud_to_laserscan" >
+    <param name="angle_min" type="double" value="-2.35619449615" />
+    <param name="angle_max" type="double" value="2.35572338104" />
+    <param name="angle_increment" type="double" value="0.00581718236208" />
+    <param name="scan_time" type="double" value="0.0666666701436" />
+    <param name="range_min" type="double" value="0.0500000007451" />
+    <param name="range_max" type="double" value="100.0" />
+    <param name="use_inf" type="boolean" value="true" />
+    <remap from="cloud_in" to="/sick_laser_rear/cloud" />
+    <remap from="scan" to="/sick_laser_rear/scan" />
+  </node>
+
+  <!-- Filter laser scans -->
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/filter_laser_scans.launch">
+  </include>
+  <!-- Combine laser scans -->
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/combine_laser_scans.launch">
+  </include>
+
+
+</launch>

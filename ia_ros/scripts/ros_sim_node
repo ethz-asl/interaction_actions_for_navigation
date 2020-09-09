@@ -1,0 +1,12 @@
+#!/usr/bin/env python
+from pepper_2d_iarlenv import parse_iaenv_args, IARLEnv, check_iaenv_args
+
+if __name__ == '__main__':
+    # args
+    args = parse_iaenv_args()
+    args.unmerged_scans = 1
+    args.continuous = True
+    check_iaenv_args(args)
+    # env
+    iarlenv = IARLEnv(args)
+    iarlenv.run()

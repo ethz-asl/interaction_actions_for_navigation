@@ -1,0 +1,70 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="rosbag" default="hg2" />
+  <arg name="mapname" default="hg_main_hall" />
+  <arg name="mapfolder" default="$(env HOME)/maps"/>
+  <arg name="script_args" default="--hz"/>
+  <arg name="n_downsampling_passes" default="3"/>
+  <arg name="localization" default="true"/>
+
+  <arg name="is_simulation" default="$(eval 'simulator' in arg('rosbag') or 'multiagent_sim' in arg('rosbag'))"/>
+
+
+  <!-- Rosbag -->
+  <include file="$(find asl_pepper_rosbags)/launch/$(arg rosbag).launch">
+    <arg name="mapname" value="$(arg mapname)" if="$(eval arg('rosbag') == 'simulator')"/>
+    <arg name="mapfolder" value="$(arg mapfolder)" if="$(eval arg('rosbag') == 'simulator')"/>
+  </include>
+  <include file="$(find pepper_description)/launch/pepper_upload.launch" if="$(eval arg('is_simulation') != true)"/>
+
+  <!-- Gmapping & Map Matching -->
+  <include file="$(find asl_pepper_gmapping)/launch/gmapping.launch" if="$(arg localization)">
+    <arg name="output" value="log"/>
+  </include>
+  <include file="$(find map_matcher)/launch/map_matcher.launch" if="$(arg localization)">
+    <arg name="output" value="log" />
+    <arg name="slam_map_topic" value="/gmap"/>
+    <arg name="reference_map_name" value="$(arg mapname)"/>
+    <arg name="maps_folder" value="$(arg mapfolder)"/>
+    <arg name="launch_prefix" value="nice -n 20" />
+  </include>
+  <!-- Otherwise just publish reference map -->
+  <node pkg="map_server" type="map_server" name="ref_map_server"
+    args="$(arg mapfolder)/$(arg mapname).yaml" if="$(eval arg('localization') != true)">
+    <param name="frame_id" value="reference_map" />
+    <remap from="/map" to="/reference_map"/>
+  </node>
+
+  <!-- Global Path Planning -->
+  <node pkg="asl_pepper_motion_planning" type="global_planner"
+    name="global_planner" args="--hz" output="log" >
+    <param name="reference_map_name" value="$(arg mapname)"/>
+    <param name="reference_map_folder" value="$(arg mapfolder)"/>
+    <param name="reference_map_downsampling_passes" value="$(arg n_downsampling_passes)" />
+  </node>
+
+  <!-- Framesoft tracking -->
+  <include file="$(find rwth_crowdbot_launch)/launch/rwth_crowdbot_launch.launch" 
+    if="$(eval arg('is_simulation') != true)">
+  </include>
+
+
+  <!-- RVO Planner -->
+  <node pkg="asl_pepper_motion_planning" type="rvo_planner" name="rvo_planner" output="screen"
+    args="$(arg script_args)">
+<!--     <param name="reference_map_name" value="$(arg mapname)"/> -->
+<!--     <param name="reference_map_folder" value="$(arg mapfolder)"/> -->
+    <param name="reference_map_name" value="/gmap"/>
+    <param name="reference_map_folder" value="rostopic"/>
+    <param name="reference_map_frame" value="gmap"/>
+    <param name="fixed_frame" value="odom"/>
+    <param name="reference_map_downsampling_passes" value="1" />
+    <param name="static_obstacles_max_distance" value="2" />
+  </node>
+
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(env HOME)/.rviz/rvo.rviz" />
+</launch>
+
+
+
+

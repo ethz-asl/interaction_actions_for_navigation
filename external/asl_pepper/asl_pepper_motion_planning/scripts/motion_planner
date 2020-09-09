@@ -1,0 +1,37 @@
+#!/usr/bin/env python
+from motion_planner import *
+
+def parse_args():
+    import argparse
+    ## Arguments
+    parser = argparse.ArgumentParser(description='Test node for the pepper RL path planning algorithm.')
+    parser.add_argument('--map-folder',
+            type=str,
+            default=".",
+            )
+    parser.add_argument('--map-name',
+            type=str,
+            default="office_full",
+            )
+    parser.add_argument('--hot-start',
+            action='store_true',
+            help="if enabled, does not wait for a control handover",
+            )
+    ARGS, unknown_args = parser.parse_known_args()
+
+    # deal with unknown arguments
+    # ROS appends some weird args, ignore those, but not the rest
+    if unknown_args:
+        non_ros_unknown_args = rospy.myargv(unknown_args)
+        if non_ros_unknown_args:
+            print("unknown arguments:")
+            print(non_ros_unknown_args)
+            parser.parse_args(args=["--help"])
+            raise ValueError
+    return ARGS
+
+if __name__ == "__main__":
+    args = parse_args()
+    map_ = Map2D(args.map_folder, args.map_name)
+    motion_planner = MotionPlanner(map_, start_disabled= not args.hot_start )
+    motion_planner.run()

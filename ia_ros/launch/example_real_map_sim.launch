@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>	
+
+<launch>
+  <arg name="mapname" default="asl_office_j" />
+  <arg name="mapfolder" default="$(env HOME)/maps" />
+  <arg name="script_args" default="--cmd_vel --map-downsampling-passes 2 --realtime --scenario officegroups" />
+
+  <node pkg="ia_ros" type="ros_sim_node"
+    name="ia_sim" args="--map-folder $(arg mapfolder) --map-name $(arg mapname) $(arg script_args)" output="screen" />
+
+  <!-- Serve map -->
+  <node pkg="map_server" type="map_server" name="sim_map_server" args="$(arg mapfolder)/$(arg mapname).yaml">
+    <param name="frame_id" value="sim_map" />
+    <remap from="map" to="sim_map" />
+  </node>
+
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(env HOME)/.rviz/ia.rviz" />
+</launch>
+
+
+

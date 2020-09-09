@@ -1,0 +1,46 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="mapname" default="asl" />
+  <arg name="mapfolder" default="$(find ia_ros)/../python/maps" />
+  <arg name="script_args" default="--cmd_vel --scenario aslguards" />
+
+  <include file="$(find ia_ros)/launch/ros_sim_node.launch">
+    <arg name="mapname" value="$(arg mapname)" />
+    <arg name="mapfolder" value="$(arg mapfolder)" />
+    <arg name="script_args" value="$(arg script_args)" />
+  </include>
+
+
+
+  <!-- Localization: gmapping & map_matcher -->
+  <include file="$(find asl_pepper_gmapping)/launch/gmapping.launch">
+    <arg name="output" value="log"/>
+  </include>
+  <include file="$(find map_matcher)/launch/map_matcher.launch">
+    <arg name="output" value="log"/>
+    <arg name="slam_map_topic" value="/gmap"/>
+    <arg name="reference_map_name" value="$(arg mapname)"/>
+    <arg name="maps_folder" value="$(arg mapfolder)"/>
+  </include>
+
+  <!-- Lidar Obstacle Tracking -->
+  <include file="$(find pylidar2d_ros)/launch/tracker.launch">
+  </include>
+
+  <!-- move_base -->
+  <node pkg="move_base" type="move_base" respawn="false" name="move_base" output="screen">
+   <remap from="map" to="reference_map"/>
+   <rosparam file="$(find asl_pepper_move_base)/params/costmap_common_params.yaml" command="load" ns="global_costmap" /> 
+   <rosparam file="$(find asl_pepper_move_base)/params/costmap_common_params.yaml" command="load" ns="local_costmap" />
+   <rosparam file="$(find asl_pepper_move_base)/params/local_costmap_params.yaml" command="load" />
+   <rosparam file="$(find asl_pepper_move_base)/params/global_costmap_params.yaml" command="load" /> 
+   <param name="base_local_planner" value="teb_local_planner/TebLocalPlannerROS" />
+   <param name="controller_frequency" value="10.0" />
+   <rosparam file="$(find asl_pepper_move_base)/params/base_local_planner_params.yaml" command="load" />
+  </node>
+
+
+</launch>
+
+
+

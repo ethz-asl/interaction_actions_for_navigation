@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <arg name="start_time" default="0." />
+  <arg name="duration" default="10000." />
+  <arg name="rosbag_path" />
+
+  <param name="use_sim_time" value="true" />
+  <node pkg="rosbag" type="play" name="player" output="screen"
+    args="--start $(arg start_time) --duration $(arg duration) -r 1 --clock $(arg rosbag_path)"/>
+  <include file="$(find pepper_description)/launch/pepper_upload.launch"/>
+
+  <!-- Crop laser scans -->
+<!--   <include file="$(find asl_pepper_sensor_preprocessing)/launch/crop_laser_scans.launch"> -->
+<!--   </include> -->
+
+  <!-- Filter laser scans -->
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/filter_laser_scans.launch">
+  </include>
+  <!-- Combine laser scans -->
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/combine_laser_scans.launch">
+  </include>
+
+  <!--
+  <node pkg="tf" type="static_transform_publisher" name="realsense_tf_pub"
+    args="0.08 0. 0.10 0. 0.1 0. Head camera_link 100" />
+    -->
+</launch>
+

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <param name="use_sim_time" value="true" />
+  <node pkg="rosbag" type="play" name="player" output="screen" args="--clock $(env HOME)/rosbags/realsense_test.bag">
+    <remap from="/camera/depth/image_rect_raw" to="/camera/aligned_depth_to_color/image_raw" />
+    <remap from="/camera/depth/camera_info" to="/camera/aligned_depth_to_color/camera_info" />
+  </node>
+
+  <node pkg="tf" type="static_transform_publisher" name="realsense_tf_pub"
+    args="0.08 0. 0.10 0. 0.1 0. Head camera_link 100" />
+
+</launch>
