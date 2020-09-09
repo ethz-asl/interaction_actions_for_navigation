@@ -50,7 +50,7 @@ wstool update
 cd ~/IAN
 virtualenv ianvenv --system-site-packages --python=python2.7
 source ~/IAN/ianvenv/bin/activate
-pip install numpy matplotlib Cython rospkg pyyaml
+pip install numpy matplotlib Cython rospkg pyyaml gym
 # (latest numba has build error on python 2)
 pip install numba==0.44 llvmlite==0.30
 ```
@@ -111,4 +111,13 @@ catkin build pylidar2d_ros responsive
 catkin build asl_pepper_gmapping asl_pepper_2d_simulator asl_pepper_sensor_preprocessing asl_pepper_motion_planning
 catkin build frame_msgs
 catkin build ia_ros
+```
+
+## Run Example
+
+```
+source ~/IAN/ianenv/bin/activate
+source ~/IAN/ian_ws/devel/setup.bash
+rviz -d ~/IAN/ian_ws/src/interaction_actions_for_navigation/external/asl_pepper/rviz/ia_sim.rviz &
+roslaunch ia_ros auto_ros_ia_node.launch
 ```
