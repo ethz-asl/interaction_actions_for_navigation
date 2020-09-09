@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
   <arg name="mapname" default="unity_scene_map" />
-  <arg name="mapfolder" default="$(env HOME)/maps"/>
+  <arg name="mapfolder" default="$(find asl_pepper_gmapping)/../maps"/>
   <arg name="script_args" default=""/>
   <arg name="ia_downsampling_passes" default="1"/>
   <arg name="localization" default="false"/>  <!-- if disabled uses g.t. loc from sim -->
@@ -58,19 +58,6 @@
     <remap from="/resume_autonomous_motion" to="/responsive/resume_autonomous_motion" />
     <remap from="/global_planner/current_waypoint" to="/responsive/waypoint" />
   </node>
-
-
-  <!-- EPFL Reactive -->
-<!--   <node name="rds_gui_ros_node" pkg="rds_gui_ros" type="rds_holonomic_gui_ros_node" /> -->
-  <node name="rds_ros" pkg="rds_ros" type="rds_holonomic_ros_node" >
-    <remap from="/laserscan" to="/combined_scan" />
-  </node>
-  <node name="rds_pepper_client" pkg="rds_ros" type="rds_pepper_client" output="screen"
-    args="">
-    <remap from="/stop_autonomous_motion" to="/epfl_planner/stop_autonomous_motion" />
-    <remap from="/resume_autonomous_motion" to="/epfl_planner/resume_autonomous_motion" />
-    <remap from="/global_planner/current_waypoint" to="/epfl_planner/waypoint" />
-   </node>
 
   <!-- RVO Planner -->
   <node pkg="asl_pepper_motion_planning" type="rvo_planner" name="rvo_planner" output="screen"
