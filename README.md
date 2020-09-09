@@ -5,6 +5,7 @@
 install [ROS](http://wiki.ros.org/melodic/Installation/Ubuntu)
 
 ```
+set -e
 # Makes sure basic dependencies are installed
 sudo echo "I shouldn't copy-paste code I don't understand!"
 sudo apt -y install git
@@ -26,7 +27,7 @@ catkin config --merge-devel
 catkin config --extend /opt/ros/$ROS_DISTRO
 catkin config -DCMAKE_BUILD_TYPE=Release
 cd src
-git clone git@github.com:ethz-asl/interaction_actions_for_navigation.git --branch devel
+git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --branch devel
 ```
 
 ```
@@ -61,18 +62,18 @@ cd ~/IAN/ian_ws/src/interaction_actions_for_navigation/external/asl_pepper/asl_p
 pip install -e .
 cd ~/IAN/ian_ws/src
 { python -c "import pyniel" && cd ~/Documents/pyniel && echo "Existing pyniel found." ; } || \
-{ git clone git@github.com:danieldugas/pyniel.git && echo "Cloning pyniel." && cd pyniel ; }
+{ git clone https://github.com/danieldugas/pyniel.git && echo "Cloning pyniel." && cd pyniel ; }
 pip install -e .
 cd ~/IAN/ian_ws/src
-git clone git@github.com:danieldugas/range_libc.git --branch comparisons
+git clone https://github.com/danieldugas/range_libc.git --branch comparisons
 cd range_libc/pywrapper
 python setup.py install
 cd ~/IAN/ian_ws/src
-git clone git@github.com:danieldugas/pymap2d.git
+git clone https://github.com/danieldugas/pymap2d.git
 cd pymap2d
 pip install .
 cd ~/IAN/ian_ws/src
-git clone git@github.com:danieldugas/pylidar2d.git
+git clone https://github.com/danieldugas/pylidar2d.git
 cd pylidar2d
 pip install .
 cd ~/IAN/ian_ws/src/interaction_actions_for_navigation/python/cIA
@@ -80,14 +81,14 @@ pip install .
 cd ..
 pip install -e .
 cd ~/IAN/ian_ws/src
-git clone git@github.com:ethz-asl/pepper_local_planning.git responsive --branch asldemo
+git clone https://github.com/ethz-asl/pepper_local_planning.git responsive --branch asldemo
 cd responsive/lib_dwa
 pip install .
 cd ../lib_clustering
 pip install .
 # External python dependencies
 cd ~/IAN/ian_ws/src
-git clone git@github.com:danieldugas/Python-RVO2.git
+git clone https://github.com/danieldugas/Python-RVO2.git
 cd Python-RVO2
 pip install .
 ```
