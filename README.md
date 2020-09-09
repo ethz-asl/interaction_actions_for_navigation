@@ -116,7 +116,7 @@ catkin build ia_ros
 ## Run Example
 
 ```
-source ~/IAN/ianenv/bin/activate
+source ~/IAN/ianvenv/bin/activate
 source ~/IAN/ian_ws/devel/setup.bash
 rviz -d ~/IAN/ian_ws/src/interaction_actions_for_navigation/external/asl_pepper/rviz/ia_sim.rviz &
 roslaunch ia_ros auto_ros_ia_node.launch
