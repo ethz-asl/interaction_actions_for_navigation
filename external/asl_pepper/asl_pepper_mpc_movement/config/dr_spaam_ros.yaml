@@ -1,5 +1,0 @@
-# weight_file: '/globalwork/jia/drow_output/NCT_spaam_area/ckpts/ckpt_e40.pth'
-weight_file: '/home/mfr/fresh_pepper_ws/src/DR-SPAAM-Detector/dr_spaam/ckpts/dr_spaam_e40.pth'
-
-conf_thresh: 0.1 #0.4 #0.1, increased as elsewhere
-stride: 1  #1 use this to skip laser points

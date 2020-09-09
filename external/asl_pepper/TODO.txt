@@ -1,4 +1,0 @@
-slam_gmapping modified
-gtsam_catkin modified
-maplab modified
-maplab launch files correct
