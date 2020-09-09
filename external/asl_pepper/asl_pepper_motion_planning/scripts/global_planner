@@ -1,0 +1,297 @@
+#!/usr/bin/env python
+from copy import deepcopy
+from costmap_converter.msg import ObstacleArrayMsg, ObstacleMsg
+from geometry_msgs.msg import Twist, Quaternion
+from geometry_msgs.msg import Point, Point32, Twist, PoseStamped
+from map2d_ros_tools import ReferenceMapAndLocalizationManager
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+import numpy as np
+from nav_msgs.msg import Odometry, Path, OccupancyGrid
+from pose2d import Pose2D, apply_tf, apply_tf_to_pose, inverse_pose2d
+import rospy
+from sensor_msgs.msg import LaserScan
+from std_srvs.srv import Trigger, TriggerResponse
+import signal
+import sys
+import tf
+from tf2_ros import TransformException
+import threading
+from timeit import default_timer as timer
+from visualization_msgs.msg import Marker, MarkerArray
+from CMap2D import CMap2D, path_from_dijkstra_field
+
+# local packages
+import lidar_clustering
+from lib_tracking.lidar_tracking import Tracker
+
+N_PAST_POS = 100
+
+
+
+class GlobalPlanner(object):
+    def __init__(self, args):
+        self.args = args
+        rospy.init_node('clustering', anonymous=True)
+        # consts
+        self.kNavGoalTopic = "/move_base_simple/goal"
+        self.kRobotFrame = "base_footprint"
+        self.kMaxObstacleVel_ms = 10. # [m/s]
+        self.kRobotComfortzoneRadius = rospy.get_param("/robot_comfort_radius", 0.7) # [m]
+        self.kRobotRadius = rospy.get_param("/robot_radius", 0.3)
+        self.kWaypointDist_m = rospy.get_param("~waypoint_distance", 3) 
+        # vars
+        self.lock = threading.Lock() # for avoiding race conditions
+        self.goal_xy_in_refmap = None
+        self.set_goal_msg = None
+        # tf
+        self.tf_listener = tf.TransformListener()
+        self.tf_br = tf.TransformBroadcaster()
+        self.tf_timeout = rospy.Duration(1.)
+        # Localization Manager
+        mapname = rospy.get_param("~reference_map_name", "map")
+        mapframe = rospy.get_param("~reference_map_frame", "reference_map")
+        mapfolder = rospy.get_param("~reference_map_folder", "~/maps")
+        map_downsampling_passes = rospy.get_param("~reference_map_downsampling_passes", 3)
+        def refmap_update_callback(self_):
+            self_.map_8ds = self_.map_
+            for _ in range(map_downsampling_passes):
+                self_.map_8ds = self_.map_8ds.as_coarse_map2d()
+            self_.map_8ds_sdf = self_.map_8ds.as_sdf()
+        self.refmap_manager = ReferenceMapAndLocalizationManager(
+            mapfolder, mapname, mapframe, self.kRobotFrame,
+            refmap_update_callback=refmap_update_callback,
+        )
+        # callback
+        rospy.Subscriber(self.kNavGoalTopic, PoseStamped, self.global_goal_callback, queue_size=1)
+        # Timers
+        rospy.Timer(rospy.Duration(0.1), self.global_motion_planning_callback)
+        rospy.Timer(rospy.Duration(0.1), self.global_dijkstra_routine)
+        # let's go.
+        try:
+            rospy.spin()
+        except KeyboardInterrupt:
+            print("Keyboard interrupt - shutting down.")
+            rospy.signal_shutdown('KeyboardInterrupt')
+
+
+
+    def global_goal_callback(self, msg): # x y is in the global map frame
+        rospy.loginfo("set_goal message received")
+        self.set_goal_msg = msg
+
+    def global_dijkstra_routine(self, event=None):
+        if self.set_goal_msg is None:
+            return
+        if self.refmap_manager.tf_frame_in_refmap is None or self.refmap_manager.map_ is None:
+            rospy.logwarn_throttle(1., "Reference map transform not available yet.")
+            return
+        with self.refmap_manager.lock:
+            map_8ds = self.refmap_manager.map_8ds
+            map_8ds_sdf = self.refmap_manager.map_8ds_sdf
+        # goal might not be in reference map frame. find goal_xy in refmap frame
+        if True:
+            try:
+                time = rospy.Time.now()
+                tf_info = [self.refmap_manager.kRefMapFrame, self.set_goal_msg.header.frame_id, time]
+                self.tf_listener.waitForTransform(*(tf_info + [self.tf_timeout]))
+                tf_msg_in_refmap = self.tf_listener.lookupTransform(*tf_info)
+            except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException,
+                    TransformException) as e:
+                print("[{}.{}] tf to refmap frame for time {}.{} not found: {}".format(
+                    rospy.Time.now().secs, rospy.Time.now().nsecs, time.secs, time.nsecs, e))
+                return
+            pose2d_msg_in_refmap = Pose2D(tf_msg_in_refmap)
+
+        goal_xy = apply_tf(np.array([self.set_goal_msg.pose.position.x,
+                                     self.set_goal_msg.pose.position.y]), pose2d_msg_in_refmap)
+        # goal ij
+        goal_ij = map_8ds.xy_to_ij([goal_xy[:2]], clip_if_outside=False)[0]
+        if not map_8ds.is_inside_ij(np.array([goal_ij], dtype=np.float32))[0]:
+            rospy.logwarn("Goal (x,y: {}, {}, i,j : {}, {}, frame: {}) is outside of reference map (frame: {}, size: {}, {})".format(
+            goal_xy[0], goal_xy[1], goal_ij[0], goal_ij[1], self.set_goal_msg.header.frame_id, self.refmap_manager.kRefMapFrame, *map_8ds.occupancy().shape))
+            return
+        # dijkstra on the low resolution map with SDF extra costs
+        # sdf_extra_costs encodes the penalty for moving between nodes in the region between
+        # kRobotComfortzoneRadius and kPepperRadius.
+        # Djikstra uses these extra costs as always-positive edge penalties to
+        # favor moving away from obstacles while ensuring a monotonic gradient to the goal.
+        print("Computing global Dijkstra.")
+        sdf_extra_costs = self.dijkstra_extra_costs_from_sdf(map_8ds_sdf)
+        sdf_speeds = 1. / (1. + sdf_extra_costs)
+        mask = (map_8ds_sdf < 0).astype(np.uint8)
+        self.global_dijkstra_lowres = map_8ds.fastmarch(
+                goal_ij,
+                mask=mask,
+                speeds=sdf_speeds,
+        )
+        print("Global Dijkstra computed.")
+        pub = rospy.Publisher("/global_planner/global_dijkstra_lowres", OccupancyGrid, queue_size=1)
+        occgrid_msg = self.numpy_to_occupancy_grid_msg(
+        self.global_dijkstra_lowres, map_8ds, self.refmap_manager.kRefMapFrame, time=rospy.Time.now())
+        pub.publish(occgrid_msg)
+        self.goal_xy_in_refmap = goal_xy
+        # Goal as marker
+        marker = self.goal_as_marker(goal_xy)
+        goal_pub = rospy.Publisher("/global_planner/goal", Marker, queue_size=1)
+        goal_pub.publish(marker)
+        self.goal_is_reached = False
+        print("New global goal: {}[meters], {}[ij]".format(goal_xy, goal_ij))
+        if not self.refmap_manager.refmap_is_dynamic:
+            # if the map does not change, no need to replan
+            self.set_goal_msg = None
+
+    def global_motion_planning_callback(self, event=None):
+        if self.goal_xy_in_refmap is None:
+            return
+        # get robot tf (using localmapframe as robot position) in global frame
+        try:
+            time = rospy.Time.now()
+            tf_info = [self.refmap_manager.kRefMapFrame, self.kRobotFrame, time] 
+            self.tf_listener.waitForTransform(*(tf_info + [self.tf_timeout]))
+            tf_ = self.tf_listener.lookupTransform(*tf_info)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException,
+                TransformException) as e:
+            print("[{}.{}] tf for time {}.{} not found: {}".format(
+                rospy.Time.now().secs, rospy.Time.now().nsecs, time.secs, time.nsecs, e))
+            return
+        robot_pose2d_in_refmap = Pose2D(tf_)
+        # check if goal is reached
+        if np.linalg.norm(robot_pose2d_in_refmap[:2] - self.goal_xy_in_refmap) <= self.kRobotRadius:
+            print("GP: global goal reached")
+            self.goal_xy_in_refmap = None
+            return
+        # Get the path
+        with self.refmap_manager.lock:
+            map_8ds = self.refmap_manager.map_8ds
+        path, _ = path_from_dijkstra_field(self.global_dijkstra_lowres,
+                map_8ds.xy_to_ij([robot_pose2d_in_refmap[:2]])[0]
+        )
+        path_xy = map_8ds.ij_to_xy(path)
+        # publish a waypoint
+        steps_to_waypoint = int(self.kWaypointDist_m / map_8ds.resolution())
+        wpt_index = min(len(path_xy)-1, steps_to_waypoint)
+        wpt_xy = path_xy[wpt_index]
+        pub = rospy.Publisher("global_planner/current_waypoint", Marker, queue_size=1)
+        marker_msg = Marker()
+        marker_msg.header.frame_id = self.refmap_manager.kRefMapFrame
+        marker_msg.header.stamp = rospy.Time.now()
+        marker_msg.type = Marker.CUBE
+        marker_msg.pose.position.x = wpt_xy[0]
+        marker_msg.pose.position.y = wpt_xy[1]
+        marker_msg.scale.x = 0.2
+        marker_msg.scale.y = 0.2
+        marker_msg.scale.z = 0.2
+        marker_msg.color.a = 1.0
+        marker_msg.color.r = 1.
+        marker_msg.color.g = 1.
+        pub.publish(marker_msg)
+        # Visualize the path
+        pub = rospy.Publisher("global_planner/global_path", Path, queue_size=1)
+        path_msg = Path()
+        path_msg.header.stamp = rospy.Time.now()
+        path_msg.header.frame_id = self.refmap_manager.kRefMapFrame
+        for i in range(len(path_xy)):
+            xy = path_xy[i]
+            ij = path[i]
+            dijkstra_dist = self.global_dijkstra_lowres[ij[0], ij[1]]
+            ps = PoseStamped()
+            ps.pose.position.x = xy[0]
+            ps.pose.position.y = xy[1]
+            ps.pose.position.z = dijkstra_dist
+            path_msg.poses.append(ps)
+        pub.publish(path_msg)
+
+    def dijkstra_extra_costs_from_sdf(self, sdf):
+        # in meters
+
+        self.kDijkstraTSDFPenalty = 10.
+        self.kDijkstraUnknownTerrainPenalty = 1.
+        return  ( 
+                # penalize steps in zones close to obstacles, proportional to obstacle closeness
+                self.kDijkstraTSDFPenalty * (self.kRobotComfortzoneRadius - np.abs(sdf)) *
+                (np.abs(sdf) < self.kRobotComfortzoneRadius) +
+                # penalize steps in unknown territory
+                ( sdf < 0 ) * self.kDijkstraUnknownTerrainPenalty
+                ).astype(np.float32)
+
+
+    def goal_as_marker(self, goal_xy,
+            time = None,
+            frame = None,
+            namespace = 'global_goal',
+            marker_type = 2, # SPHERE
+            resolution = None,
+            color = [0., 1., 0., 1.], # rgba
+            ):
+        if time is None:
+            time = rospy.Time.now()
+        if frame is None:
+            frame = self.refmap_manager.kRefMapFrame
+        if resolution is None:
+            resolution = self.refmap_manager.map_8ds.resolution()
+        marker = Marker()
+        marker.header.stamp.secs = time.secs
+        marker.header.stamp.nsecs = time.nsecs
+        marker.header.frame_id = frame
+        marker.ns = namespace
+        marker.id = 0
+        marker.type = marker_type
+        marker.action = 0
+        s = resolution
+        marker.pose.position.x = goal_xy[0]
+        marker.pose.position.y = goal_xy[1]
+        marker.pose.position.z = 1.
+        marker.scale.x = s
+        marker.scale.y = s
+        marker.scale.z = s
+        marker.color.r = color[0]
+        marker.color.g = color[1]
+        marker.color.b = color[2]
+        marker.color.a = color[3]
+        return marker
+
+    def numpy_to_occupancy_grid_msg(self, arr, ref_map2d, frame_id, time=None):
+        if not len(arr.shape) == 2:
+                raise TypeError('Array must be 2D')
+        arr = arr.T * 100.
+        if not arr.dtype == np.int8:
+            arr = arr.astype(np.int8)
+        if time is None:
+            time = rospy.Time.now()
+        grid = OccupancyGrid()
+        grid.header.frame_id = frame_id
+        grid.header.stamp.secs = time.secs
+        grid.header.stamp.nsecs = time.nsecs
+        grid.data = arr.ravel()
+        grid.info.resolution = ref_map2d.resolution()
+        grid.info.height = arr.shape[0]
+        grid.info.width = arr.shape[1]
+        grid.info.origin.position.x = ref_map2d.origin[0]
+        grid.info.origin.position.y = ref_map2d.origin[1]
+        return grid 
+
+def parse_args():
+    import argparse
+    ## Arguments
+    parser = argparse.ArgumentParser(description='ROS node for clustering 2d lidar')
+    parser.add_argument('--hz',
+            action='store_true',
+            help='if set, prints planner frequency to script output',
+            )
+    ARGS, unknown_args = parser.parse_known_args()
+
+    # deal with unknown arguments
+    # ROS appends some weird args, ignore those, but not the rest
+    if unknown_args:
+        non_ros_unknown_args = rospy.myargv(unknown_args)
+        if non_ros_unknown_args:
+            print("unknown arguments:")
+            print(non_ros_unknown_args)
+            parser.parse_args(args=["--help"])
+            raise ValueError
+    return ARGS
+
+if __name__=="__main__":
+    args = parse_args()
+    planner = GlobalPlanner(args)

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>asl_pepper_2d_simulator</name>
+  <version>0.0.1</version>
+  <description>simple python based 2d simulator for pepper</description>
+  <author email="dugasd@ethz.ch">Daniel Dugas</author>
+  <maintainer email="dugasd@ethz.ch">Daniel Dugas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+</package>
+

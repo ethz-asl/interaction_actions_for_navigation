@@ -1,0 +1,19 @@
+IA state from worldstate
+IA valid actions
+  multiple versions of Intend for multiple goals
+  find reasonable paths
+IA tree generation
+
+
+flesh out actions
+  Intend
+  Say
+  Nudge
+  Crawl
+
+Add Interaction in Simulator
+  Permissivity?
+  Perceptivity?
+Add agents with IA to simulator
+
+MILESTONE: planner running in simulator shows attempt at passing non-permissive area, replans around it

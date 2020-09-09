@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>	
+
+<launch>
+  <arg name="cmd_vel_topic" default="/cmd_vel" />
+  <arg name="joystick_device" default="/dev/input/js0" />
+  <param name="joy_node/dev" value="$(arg joystick_device)" />
+  <param name="joy_node/coalesce_interval" value="0.01" /> <!-- prevents saturating pepper actuation -->
+  <param name="joy_node/autorepeat_rate" value="2" /> <!-- prevents saturating pepper actuation -->
+  <node pkg="joy" type="joy_node" name="joy_node" output="screen" />
+  <node pkg="asl_pepper_joystick" type="asl_pepper_joystick_node" name="asl_pepper_joystick_node" >
+    <remap from="/cmd_vel" to="$(arg cmd_vel_topic)" />
+  </node>
+</launch>
+
+

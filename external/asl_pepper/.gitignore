@@ -1,0 +1,19 @@
+# Specific paths #
+##################
+asl_pepper_calibration/calibration_data
+
+# File patterns #
+#################
+*~
+.ipynb_checkpoints
+*.pyc
+*.bag
+.ycm_extra_conf.py
+compile_commands.json
+ORBvoc.txt
+__pycache__/
+*.bin
+*.out
+build/
+
+*.egg-info/

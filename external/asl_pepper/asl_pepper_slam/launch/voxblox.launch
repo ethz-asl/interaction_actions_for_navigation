@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<launch>
+  <arg name="voxel_size" default="0.05"/>
+
+   <node name="voxblox_node" pkg="voxblox_ros" type="tsdf_server" output="screen" args="-alsologtostderr" clear_params="true">
+    <remap from="pointcloud" to="/pepper_robot/camera/depth_registered/points"/>
+    <!-- General parameters -->
+    <param name="min_time_between_msgs_sec" value="0.0" />
+    <param name="verbose" value="true" />
+    <!-- TSDF Integrator parameters -->
+    <param name="method" value="fast" />
+    <param name="tsdf_voxel_size" value="$(arg voxel_size)" />
+    <!-- Input transform parameters -->
+    <param name="world_frame" value="odom" />
+    <param name="sensor_frame" value="CameraDepth_optical_frame" />
+    <!-- Output parameters -->
+    <param name="update_mesh_every_n_sec" value="1.0" />
+  </node>
+
+</launch>

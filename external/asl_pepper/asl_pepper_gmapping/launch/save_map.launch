@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+
+  <arg name="save_map_to" default="/tmp/gmapping_map"/>
+
+  <node pkg="map_server" type="map_saver" name="gmap_saver" 
+    args="-f $(arg save_map_to)" output="screen"  >
+    <remap from="map" to="gmap"/>
+  </node>
+</launch>

@@ -1,0 +1,137 @@
+#!/usr/bin/env python
+from matplotlib import pyplot as plt
+import numpy as np
+import os
+import time
+from pose2d import Pose2D, apply_tf, apply_tf_to_pose, inverse_pose2d, posemsg_to_pose2d
+from pyniel.ros_tools.rosbag_end_detector import RosbagEndDetector
+import rospy
+import tf
+from tf2_ros import TransformException
+
+FIXED_FRAME = "eval_reference_map"
+TRUE_FIXED_FRAME = "reference_map"
+MAP_FRAME   = "eval_gmap"
+ROBOT_FRAME = "base_footprint"
+DELAY_START = 3.
+
+ROSBAG_NAME = rospy.get_param("/rosbag_name")
+
+FILEPATH = "/tmp/results_loc_live_eval_{}.txt".format(ROSBAG_NAME)
+
+COUNT_DETECTIONS = False
+
+class Evaluator(object):
+    def __init__(self):
+        self.start_time = None
+        self.start_robot_in_true = None
+        self.mm_msgs = []
+        self.SUCCESS = False
+        # 1 - Node Init
+        rospy.init_node('framesoft_eval')
+        self.tf_listener = tf.TransformListener()
+        # 2 - Subscribers now active
+        from nav_msgs.msg import OccupancyGrid
+        rospy.Subscriber("/debug/GlobalMatch", OccupancyGrid, self.mm_cb, queue_size=1)
+
+        # if start is not delayed, a quickly found solution means the tf tree is not built yet
+        self.RECORDING = False
+        time.sleep(DELAY_START)
+        self.RECORDING = True
+
+        # 3 - End detector active
+        self.rosbag_end_detector = RosbagEndDetector(self.rosbag_end_callback, self.rosbag_start_callback)
+
+        # 4 - Spin (waits)
+        rospy.spin()
+
+    def mm_cb(self, msg):
+        if not self.RECORDING:
+            return
+        self.loc_robot_in_true = self.wait_for_tf(TRUE_FIXED_FRAME, ROBOT_FRAME)
+        self.loc_robot_in_fixed = self.wait_for_tf(FIXED_FRAME, ROBOT_FRAME)
+        self.loc_time = msg.header.stamp
+        if self.start_time is None:
+            self.start_time = self.loc_time
+        if self.loc_robot_in_true is None:
+            self.loc_robot_in_true = [None, None, None]
+        if self.loc_robot_in_fixed is None:
+            self.loc_robot_in_fixed = [None, None, None]
+        if self.start_robot_in_true is None:
+            self.start_robot_in_true = self.loc_robot_in_true
+        rospy.logwarn("Localization found")
+        rospy.logwarn(ROSBAG_NAME)
+        rospy.logwarn(self.start_time)
+        rospy.logwarn(self.loc_time - self.start_time)
+        rospy.logwarn(self.start_robot_in_true)
+        rospy.logwarn(self.loc_robot_in_true)
+        rospy.logwarn(self.loc_robot_in_fixed)
+        rospy.logwarn("writing to log {}".format(FILEPATH))
+        with open(FILEPATH, "a") as f:
+            f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}\n".format(
+                ROSBAG_NAME,
+                self.start_time,
+                self.loc_time - self.start_time,
+                self.start_robot_in_true[0],
+                self.start_robot_in_true[1],
+                self.start_robot_in_true[2],
+                self.loc_robot_in_true[0],
+                self.loc_robot_in_true[1],
+                self.loc_robot_in_true[2],
+                self.loc_robot_in_fixed[0],
+                self.loc_robot_in_fixed[1],
+                self.loc_robot_in_fixed[2],
+            ))
+        self.RECORDING = False
+        rospy.signal_shutdown("success")
+
+
+    def rosbag_end_callback(self):
+        if not self.RECORDING:
+            return
+        self.loc_robot_in_true = [None, None, None] # waiting for tf blocks forever as clock is stopped
+        self.loc_robot_in_fixed = [None, None, None]
+        self.loc_time = rospy.Time.now()
+        if self.start_robot_in_true is None:
+            self.start_robot_in_true = self.loc_robot_in_true
+        rospy.logwarn("writing to log {}".format(FILEPATH))
+        with open(FILEPATH, "a") as f:
+            f.write("{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}\n".format(
+                ROSBAG_NAME,
+                self.start_time,
+                self.loc_time - self.start_time,
+                self.start_robot_in_true[0],
+                self.start_robot_in_true[1],
+                self.start_robot_in_true[2],
+                self.loc_robot_in_true[0],
+                self.loc_robot_in_true[1],
+                self.loc_robot_in_true[2],
+                self.loc_robot_in_fixed[0],
+                self.loc_robot_in_fixed[1],
+                self.loc_robot_in_fixed[2],
+            ))
+        rospy.logerr("Rosbag end/pause detected, no localization")
+        self.RECORDING = False
+        rospy.signal_shutdown("failure")
+
+    def rosbag_start_callback(self):
+        self.start_robot_in_true = self.wait_for_tf(TRUE_FIXED_FRAME, ROBOT_FRAME)
+        self.start_time = rospy.Time.now()
+        rospy.logwarn(self.start_robot_in_true)
+
+    def wait_for_tf(self, parent, child, tf_timeout=rospy.Duration(1.)):
+        try:
+            time = rospy.Time.now()
+            tf_info = [parent, child, time]
+            self.tf_listener.waitForTransform(*(tf_info + [tf_timeout]))
+            tf_child_in_parent = self.tf_listener.lookupTransform(*tf_info)
+        except (tf.LookupException, tf.ConnectivityException, tf.ExtrapolationException,
+                TransformException) as e:
+            print("[{}.{}] tf to refmap frame for time {}.{} not found: {}".format(
+                rospy.Time.now().secs, rospy.Time.now().nsecs, time.secs, time.nsecs, e))
+            return None
+        pose2d_child_in_parent = Pose2D(tf_child_in_parent)
+        return pose2d_child_in_parent
+
+if __name__=="__main__":
+    Evaluator()

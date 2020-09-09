@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?>	
+
+<launch>
+  <param name="use_sim_time" value="true" />
+
+  <arg name="output" default="screen" />
+  <arg name="mapname" default="asl" />
+  <arg name="mapfolder" default="$(find ia_ros)/../python/maps" />
+  <arg name="script_args" default="--cmd_vel --scenario aslgroups --plan-async --naive-plan" />
+  <arg name="rviz" default="true" />
+  <arg name="launch_prefix" default="" />  <!-- "python -m cProfile -o /tmp/sim.prof"  -->
+
+  <node pkg="ia_ros" type="ros_sim_node" required="true" launch-prefix="$(arg launch_prefix)"
+    name="ia_sim" args="--map-folder $(arg mapfolder) --map-name $(arg mapname) $(arg script_args)" output="$(arg output)" />
+
+  <!-- Static pepper model (stuck in standing pose) -->
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find asl_pepper_2d_simulator)/urdf/pepper_frozen_standing.urdf" />
+
+  <!-- Filter simulated lidars -->
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/filter_laser_scans.launch">
+  </include>
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/combine_laser_scans.launch">
+  </include>
+
+
+  <!-- Serve map -->
+  <node pkg="map_server" type="map_server" name="sim_map_server" args="$(arg mapfolder)/$(arg mapname).yaml">
+    <param name="frame_id" value="sim_map" />
+    <remap from="map" to="sim_map"/>
+  </node>
+
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(env HOME)/.rviz/ia_sim.rviz" if="$(arg rviz)"/>
+</launch>
+
+
+

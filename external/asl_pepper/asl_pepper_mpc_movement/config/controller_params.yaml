@@ -1,0 +1,47 @@
+
+# ROS ones: 
+rate: 20
+big_red_button: true #STOP, Send the all-zero velocity command
+
+# Controller setup: (Needs to match the one in ACADO-Matlab!)
+acado_dt: 0.05 # Not found in acado_common.h, surprisingly. 
+n_obst: 10 #Number of obstacles considered
+n_agent: 5 #Number of agents considered
+# in Acado already: N, kappa, c (?), g, constraint levels
+
+# Controller settings: (ML independent)
+desired_speed: 0.3 #1.1 # Too high, limits? 
+max_speed: 0.4 # Limit version, just cap it here, too. 
+#arrival_tolerance: 1 #0.1 #Checking success. Not implemented here, at the moment. 
+lookahead_distance: 2.0  #Related to the setpoint
+goal_proximity: 0.75 # 0.75 #zero velocity setpoint when close to the goal. 
+
+turnTime: 2.0 #Completing the turn to face the current waypoint
+turnLimit: 0.5 #Jerk of the turn
+
+# Robot propertes: (Should match ML code)
+robot_radius: 0.5
+robot_mass: 1.0
+ 
+k_turmoil: 25.0
+c_turmoil: 1.2
+#dt_turmoil: 0.05
+ 
+#Discrete Turmoil System (Tustin approximation, generated in Matlab)
+#Generate with 'YAML_Formatter.m', should use the same k, c here and there.
+a_turmoil: [0.97011, 0, 0.047818, 0, 
+            0, 0.97011, 0, 0.047818, 
+            -1.1955, 0, 0.91273, 0, 
+            0, -1.1955, 0, 0.91273]
+b_turmoil: [0.0011955, 0, 
+            0, 0.0011955, 
+            0.047818, 0, 
+            0, 0.047818]
+
+weight_pos: 1.0
+weight_velo: 1.0
+weight_turmoil: 0.0
+weight_turmoil_E: 1.0
+weight_obst: 10.0 # Combined. Gets divided by n_obst
+weight_agent: 10.0 # Combined. Gets divided by n_agent
+weight_input: 1.0 

@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="enable_debugging" default="false" />
+  <arg name="launch_prefix" value="xterm -e gdb --args" if="$(arg enable_debugging)"/> 
+  <arg name="launch_prefix" value="" unless="$(arg enable_debugging)"/>
+
+  <node pkg="map_server" type="map_server" name="map_server"
+    args="$(find asl_pepper_motion_planning)/scripts/office_full.yaml" /> 
+
+  <node pkg="amcl" type="amcl" name="amcl"
+        respawn="false" output="screen" launch-prefix="$(arg launch_prefix)">
+    <param name="base_frame_id" type="string" value="base_link" />
+    <param name="max_particles" type="int" value="10000" />
+    <param name="initial_cov_xx" type="double" value="100." />
+    <param name="initial_cov_yy" type="double" value="100." />
+    <param name="initial_cov_aa" type="double" value="10." />
+    <param name="update_min_d" type="double" value="0.1" />
+    <param name="odom_model_type" type="string" value="omni-corrected" />
+    <param name="laser_model_type" type="string" value="likelihood_field" />
+    <param name="laser_max_beams" type="int" value="100" />
+    <remap from="scan" to="combined_scan" />
+  </node>
+</launch>

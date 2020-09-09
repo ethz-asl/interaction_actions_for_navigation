@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="localization_map_input"    default="$(env HOME)/maplab/_0" />
+  <arg name="localization_map_output"   default="" />
+  <arg name="ncamera_calibration"       default="$(find asl_pepper_maplab)/config/ncamera-dynamic.yaml" />
+  <arg name="imu_params_maplab"           default="$(find asl_pepper_maplab)/config/imu-adis16488.yaml" />
+  <arg name="imu_params_rovio"           default="$(find asl_pepper_maplab)/config/imu-sigmas-rovio.yaml" />
+  <arg name="extra_args"                       default="" />
+
+  <node pkg="rovioli" type="rovioli" name="rovioli"
+    args="--alsologtostderr=1 --v=2 --rovioli_visualize_map --ncamera_calibration=$(arg ncamera_calibration) --imu_parameters_maplab=$(arg imu_params_maplab) --imu_parameters_rovio=$(arg imu_params_rovio) --publish_debug_markers --datasource_type='rostopic' --optimize_map_to_localization_map=false --vio_localization_map_folder=$(arg localization_map_input) --save_map_folder=$(arg localization_map_output) --map_builder_save_image_as_resources=false --feature_tracker_simple_pipeline_brisk_rotation_invariant=true $(arg extra_args)" /> 
+</launch>

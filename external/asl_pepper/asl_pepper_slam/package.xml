@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+
+<package format="2">
+  <name>asl_pepper_slam</name>
+  <version>0.0.1</version>
+  <description>WIP</description>
+
+  <author email="dugasd@ethz.ch">Daniel Dugas</author>
+
+  <maintainer email="dugasd@ethz.ch">Daniel Dugas</maintainer>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <depend>naoqi_driver</depend>
+  <depend>ros_numpy</depend>
+</package>

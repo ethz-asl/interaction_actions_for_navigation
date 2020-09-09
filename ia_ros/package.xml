@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>ia_ros</name>
+  <version>0.0.1</version>
+  <description>interaction-actions planner for ROS</description>
+  <author email="dugasd@ethz.ch">Daniel Dugas</author>
+  <maintainer email="dugasd@ethz.ch">Daniel Dugas</maintainer>
+  <license>MIT</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+  <buildtool_depend>catkin_simple</buildtool_depend>
+
+  <depend>ros_run_command</depend>
+</package>
+

@@ -1,0 +1,45 @@
+<?xml version="1.0"?>
+<launch>
+
+  <!-- Nodelet manager for this pipeline -->
+  <node pkg="nodelet" type="nodelet" args="manager"
+        name="nodelet_manager" output="screen"/>
+
+  <!-- The depth image is already rectified and registered
+       to the camera optical frame, but stored in mm; convert it
+       to meters -->
+  <node pkg="nodelet" type="nodelet" name="metric_rect" 
+        args="load depth_image_proc/convert_metric nodelet_manager --no-bond">
+    <remap from="image_raw" to="/pepper_robot/camera/depth/image_raw"/>
+    <remap from="image" to="/pepper_robot/camera/depth/image_raw_meters"/>
+  </node>
+
+  <!-- Convert it into a point cloud -->
+  <node pkg="nodelet" type="nodelet" name="cloudify"
+        args="load depth_image_proc/point_cloud_xyz nodelet_manager --no-bond">
+    <remap from="image_rect" to="/pepper_robot/camera/depth/image_raw_meters"/>
+    <remap from="camera_info" to="/pepper_robot/camera/depth/camera_info"/>
+    <remap from="points" to="/pepper_robot/camera/depth/point_cloud"/>
+  </node>
+
+  <!-- Extra Pipeline for assigning rgb values to depth values, requires registering depth camera to front camera -->
+
+  <!-- Registered depth image -->
+  <node pkg="nodelet" type="nodelet" name="register_depth" 
+        args="load depth_image_proc/register nodelet_manager --no-bond">
+        <remap from="rgb/camera_info" to="/pepper_robot/camera/front/camera_info"/>
+        <remap from="depth/camera_info" to="/pepper_robot/camera/depth/camera_info"/>
+        <remap from="depth/image_rect" to="/pepper_robot/camera/depth/image_raw_meters"/>
+        <remap from="depth_registered/camera_info" to="/pepper_robot/camera/depth_registered/camera_info"/>
+        <remap from="depth_registered/image_rect" to="/pepper_robot/camera/depth_registered/image_raw_meters"/>
+  </node>
+
+  <!-- Convert it into an xyzrgb point cloud -->
+  <node pkg="nodelet" type="nodelet" name="cloudifyRGB"
+        args="load depth_image_proc/point_cloud_xyzrgb nodelet_manager --no-bond">
+    <remap from="rgb/camera_info" to="/pepper_robot/camera/front/camera_info"/>
+    <remap from="rgb/image_rect_color" to="/pepper_robot/camera/front/image_raw"/>
+    <remap from="depth_registered/image_rect" to="/pepper_robot/camera/depth_registered/image_raw_meters"/>
+    <remap from="depth_registered/points" to="/pepper_robot/camera/depth_registered/point_cloud"/>
+  </node>
+</launch>

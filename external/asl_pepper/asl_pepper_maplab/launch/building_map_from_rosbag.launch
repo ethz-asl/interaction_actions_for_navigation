@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="rosbag"    default="$(env HOME)/rosbags/demo1.bag" />
+  <arg name="localization_map_output"   default="$(env HOME)/maplab/" />
+  <arg name="ncamera_calibration"       default="$(find asl_pepper_maplab)/config/ncamera-dynamic.yaml" />
+  <arg name="imu_params_maplab"           default="$(find asl_pepper_maplab)/config/imu-adis16488.yaml" />
+  <arg name="imu_params_rovio"           default="$(find asl_pepper_maplab)/config/imu-sigmas-rovio.yaml" />
+  <arg name="extra_args"                       default="" />
+
+  <node pkg="rovioli" type="rovioli" name="rovioli_build_map"
+    args="--alsologtostderr=1 --v=2 --ncamera_calibration=$(arg ncamera_calibration) --imu_parameters_maplab=$(arg imu_params_maplab) --imu_parameters_rovio=$(arg imu_params_rovio)  --datasource_type='rosbag'   --save_map_folder=$(arg localization_map_output) --optimize_map_to_localization_map=false --map_builder_save_image_as_resources=false --datasource_rosbag=$(arg rosbag) --feature_tracker_simple_pipeline_brisk_rotation_invariant=true $(arg extra_args)" /> 
+</launch>

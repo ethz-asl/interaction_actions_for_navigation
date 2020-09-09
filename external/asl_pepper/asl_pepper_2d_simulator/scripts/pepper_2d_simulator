@@ -1,0 +1,22 @@
+#!/usr/bin/env python
+
+from pepper_2d_simulator import *
+
+if __name__ == "__main__":
+    # Source the current dir to be able to import map2d.py and others
+    import os, sys
+    scriptdir = os.path.dirname(os.path.realpath(__file__))
+    print("Script directory: {}".format(scriptdir))
+    sys.path.insert(0,scriptdir)
+    # Load the map
+    map_folder = "."
+    map_name = "office_full"
+#     raise IOError(sys.argv)
+    if len(sys.argv) >= 3:
+        map_folder = sys.argv[1]
+        map_name = sys.argv[2]
+    map_ = CMap2D(map_folder, map_name)
+    print("Map '{}' loaded.".format(map_name))
+    # Standard single pepper ros simulator
+    virtual_pepper = Virtual2DPepper(map_)
+    virtual_pepper.run()

@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="utf-8"?>	
+<launch>
+  <param name="robot_description" command="$(find xacro)/xacro.py $(find asl_pepper_2d_simulator)/urdf/pepper_frozen_standing.urdf" />
+</launch>

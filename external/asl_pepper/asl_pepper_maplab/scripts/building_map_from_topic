@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+LOCALIZATION_MAP_OUTPUT=$1
+NCAMERA_CALIBRATION="/home/daniel/Documents/pepper_ws/src/asl_pepper/asl_pepper_maplab/config/ncamera-dynamic.yaml"
+IMU_PARAMETERS_MAPLAB="$ROVIO_CONFIG_DIR/imu-adis16488.yaml"
+IMU_PARAMETERS_ROVIO="$ROVIO_CONFIG_DIR/imu-sigmas-rovio.yaml"
+REST=$@
+
+rosrun rovioli rovioli \
+  --alsologtostderr=1 \
+  --v=2 \
+  --ncamera_calibration=$NCAMERA_CALIBRATION  \
+  --imu_parameters_maplab=$IMU_PARAMETERS_MAPLAB \
+  --datasource_type="rostopic" \
+  --save_map_folder="$HOME/maplab/" \
+  --map_builder_save_image_as_resources=false \
+  --optimize_map_to_localization_map=false $REST
+  #--imu_parameters_rovio=$IMU_PARAMETERS_ROVIO \

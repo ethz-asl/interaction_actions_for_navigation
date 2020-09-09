@@ -1,0 +1,56 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="mapname" default="asl" />
+  <arg name="mapfolder" default="$(find ia_ros)/../python/maps" />
+  <arg name="script_args" default="--cmd_vel --scenario aslgroups" />
+
+  <!-- Simulation -->
+  <node pkg="ia_ros" type="ros_sim_node"
+    name="ia_sim" args="--map-folder $(arg mapfolder) --map-name $(arg mapname) $(arg script_args)" output="screen" />
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/filter_laser_scans.launch">
+  </include>
+  <include file="$(find asl_pepper_sensor_preprocessing)/launch/combine_laser_scans.launch">
+  </include>
+  <node pkg="map_server" type="map_server" name="sim_map_server" args="$(arg mapfolder)/$(arg mapname).yaml">
+    <remap from="map" to="sim_map" />
+    <param name="frame_id" value="sim_map" />
+  </node>
+
+  <!-- Gmapping & Map Matching -->
+  <include file="$(find asl_pepper_gmapping)/launch/gmapping.launch">
+    <arg name="output" value="log"/>
+  </include>
+  <include file="$(find map_matcher)/launch/map_matcher.launch">
+    <arg name="output" value="log" />
+    <arg name="slam_map_topic" value="/gmap"/>
+    <arg name="reference_map_name" value="$(arg mapname)"/>
+    <arg name="maps_folder" value="$(arg mapfolder)"/>
+    <arg name="reference_map_downsampling_passes" value="3" />
+  </include>
+
+  <!-- Global Path Planning -->
+  <node pkg="asl_pepper_motion_planning" type="global_planner"
+    name="global_planner" args="--hz" output="log" >
+    <param name="reference_map_name" value="$(arg mapname)"/>
+    <param name="reference_map_folder" value="$(arg mapfolder)"/>
+    <param name="reference_map_downsampling_passes" value="0" />
+  </node>
+
+  <!-- Tracker -->
+  <node pkg="ros_run_command" type="ros_run_command" name="python_tracker" output="log"
+    args="python $(find pylidar2d_ros)/scripts/ros_tracker_example.py --hz --fixed-frame gmap">
+    <param name="reference_map_name" value="$(arg mapname)"/>
+    <param name="reference_map_folder" value="$(arg mapfolder)"/>
+  </node>
+  <!-- ros_run_command does not forward node namespace to script, so the script gets param from absolute namespace /python_planner/PARAM_NAME -->
+  <node pkg="ros_run_command" type="ros_run_command" name="python_planner" output="screen"
+    args="python $(find pylidar2d_ros)/scripts/ros_planner_example.py --hz --fixed-frame gmap">
+    <param name="reference_map_name" value="$(arg mapname)"/>
+    <param name="reference_map_folder" value="$(arg mapfolder)"/>
+  </node>
+
+  <node type="rviz" name="rviz" pkg="rviz" args="-d $(env HOME)/.rviz/ia.rviz" />
+</launch>
+
+
+

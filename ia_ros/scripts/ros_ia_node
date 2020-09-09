@@ -1,0 +1,8 @@
+#!/usr/bin/env python
+from ros_ia_node import IAPlanningNode
+from pepper_2d_iarlenv import parse_iaenv_args
+
+if __name__ == "__main__":
+    args = parse_iaenv_args()
+    planner = IAPlanningNode(args)
+

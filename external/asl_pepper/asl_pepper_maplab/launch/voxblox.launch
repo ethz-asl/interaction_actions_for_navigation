@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<launch>
+  <arg name="voxel_size" default="0.05"/>
+
+   <node name="voxblox_node" pkg="voxblox_ros" type="tsdf_server" output="screen" args="-alsologtostderr" clear_params="true">
+    <remap from="pointcloud" to="/pepper_robot/camera/depth_registered/points"/>
+    <param name="tsdf_voxel_size" value="$(arg voxel_size)" />
+    <param name="truncation_distance" value="0.5" />
+    <param name="color_mode" value="color" />
+    <param name="enable_icp" value="true" />
+    <param name="world_frame" value="gmap" />
+    <param name="icp_refine_roll_pitch" value="false" />
+    <param name="update_mesh_every_n_sec" value="1.0" />
+    <param name="min_time_between_msgs_sec" value="0.0" />
+    <param name="method" value="fast" />
+    <param name="max_ray_length_m" value="10.0" />
+    <param name="verbose" value="true" />
+    <param name="mesh_filename" value="$(find asl_pepper_maplab)/mesh_results/demo.ply" />
+  </node>
+
+</launch>
