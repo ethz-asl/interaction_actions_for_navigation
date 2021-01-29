@@ -42,3 +42,7 @@
    local-name: ros_run_command
    uri: https://github.com/danieldugas/ros_run_command.git
    version: master
+- git:
+   local-name: responsive
+   uri: https://github.com/ethz-asl/pepper_local_planning.git
+   version: asldemo

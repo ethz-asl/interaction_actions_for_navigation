@@ -50,9 +50,9 @@ wstool update
 ```
 # Create and source a virtualenv
 cd ~/IAN
-virtualenv ianvenv --system-site-packages --python=python2.7
+virtualenv ianvenv --system-site-packages --python=python3.6
 source ~/IAN/ianvenv/bin/activate
-pip install numpy matplotlib Cython rospkg pyyaml gym
+pip install numpy matplotlib Cython rospkg pyyaml gym opencv-python
 # (latest numba has build error on python 2)
 pip install numba==0.44 llvmlite==0.30
 ```
@@ -60,39 +60,8 @@ pip install numba==0.44 llvmlite==0.30
 ```
 # Python dependencies
 source ~/IAN/ianvenv/bin/activate
-cd ~/IAN/ian_ws/src/interaction_actions_for_navigation/external/asl_pepper/asl_pepper_2d_simulator/python
-pip install -e .
-cd ~/IAN/ian_ws/src
-{ python -c "import pyniel" && cd ~/Documents/pyniel && echo "Existing pyniel found." ; } || \
-{ git clone https://github.com/danieldugas/pyniel.git && echo "Cloning pyniel." && cd pyniel ; }
-pip install -e .
-cd ~/IAN/ian_ws/src
-git clone https://github.com/danieldugas/range_libc.git --branch comparisons
-cd range_libc/pywrapper
-python setup.py install
-cd ~/IAN/ian_ws/src
-git clone https://github.com/danieldugas/pymap2d.git
-cd pymap2d
-pip install .
-cd ~/IAN/ian_ws/src
-git clone https://github.com/danieldugas/pylidar2d.git
-cd pylidar2d
-pip install .
-cd ~/IAN/ian_ws/src/interaction_actions_for_navigation/python/cIA
-pip install .
-cd ..
-pip install -e .
-cd ~/IAN/ian_ws/src
-git clone https://github.com/ethz-asl/pepper_local_planning.git responsive --branch asldemo
-cd responsive/lib_dwa
-pip install .
-cd ../lib_clustering
-pip install .
-# External python dependencies
-cd ~/IAN/ian_ws/src
-git clone https://github.com/danieldugas/Python-RVO2.git
-cd Python-RVO2
-pip install .
+pip install --extra-index-url https://rospypi.github.io/simple/ rospy rosbag tf tf2_ros nav_msgs std_srvs visualization_msgs
+pip install pyIAN asl-pepper-2d-sim asl-pepper-responsive pyrangelibc-danieldugas pyrvo2-danieldugas pymap2d pylidar2d pyniel ros-frame-msgs
 ```
 
 ```
