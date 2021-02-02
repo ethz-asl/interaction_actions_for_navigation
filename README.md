@@ -50,7 +50,7 @@ wstool update
 ```
 # Create and source a virtualenv
 cd ~/IAN
-virtualenv ianvenv --system-site-packages --python=python3.6
+virtualenv ianvenv --python=python3.6
 source ~/IAN/ianvenv/bin/activate
 pip install numpy matplotlib Cython rospkg pyyaml gym opencv-python
 # (latest numba has build error on python 2)
