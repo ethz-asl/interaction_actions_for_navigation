@@ -17,7 +17,7 @@
 - git:
    local-name: slam_gmapping
    uri: https://github.com/danieldugas/slam_gmapping.git
-   version: shlopenslam
+   version: shlopenslam-noetic
 - git:
    local-name: opencv3_catkin
    uri: https://github.com/ethz-asl/opencv3_catkin.git
@@ -46,3 +46,7 @@
    local-name: responsive
    uri: https://github.com/ethz-asl/pepper_local_planning.git
    version: asldemo
+- git:
+   local-name: rosmon
+   uri: https://github.com/xqms/rosmon.git
+   version: master

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(asl_pepper_sensor_preprocessing)
 
-add_definitions(-std=c++11)
+add_definitions(-std=c++14)
 
 find_package(catkin_simple 0.1.0 REQUIRED)
 catkin_simple(ALL_DEPS_REQUIRED)

@@ -14,7 +14,7 @@
     name="ia_sim" args="--map-folder $(arg mapfolder) --map-name $(arg mapname) $(arg script_args)" output="$(arg output)" />
 
   <!-- Static pepper model (stuck in standing pose) -->
-  <param name="robot_description" command="$(find xacro)/xacro.py $(find asl_pepper_2d_simulator)/urdf/pepper_frozen_standing.urdf" />
+  <param name="robot_description" command="$(find xacro)/xacro $(find asl_pepper_2d_simulator)/urdf/pepper_frozen_standing.urdf" />
 
   <!-- Filter simulated lidars -->
   <include file="$(find asl_pepper_sensor_preprocessing)/launch/filter_laser_scans.launch">
