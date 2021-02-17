@@ -29,7 +29,7 @@ catkin config --merge-devel
 catkin config --extend /opt/ros/$ROS_DISTRO
 catkin config -DCMAKE_BUILD_TYPE=Release
 cd src
-git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --branch master
+git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --branch noetic
 ```
 
 ```
