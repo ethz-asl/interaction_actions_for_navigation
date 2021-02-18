@@ -11,14 +11,14 @@ set -e
 # Makes sure basic dependencies are installed
 sudo echo "I shouldn't copy-paste code I don't understand!"
 sudo apt -y install git
-sudo apt -y install python-catkin-tools python-wstool
-sudo apt -y install python-pip virtualenv
+sudo apt -y install python3-catkin-tools python3-wstool
+sudo apt -y install python3-pip virtualenv
 sudo apt -y install libssh2-1-dev
 ```
 
 ```
 # Makes sure ROS is sourced
-[ ! -z $ROS_DISTRO ] || source /opt/ros/melodic/setup.bash || source /opt/ros/kinetic/setup.bash
+[ ! -z $ROS_DISTRO ] || source /opt/ros/noetic/setup.bash || source /opt/ros/melodic/setup.bash || source /opt/ros/kinetic/setup.bash
 [ ! -z $ROS_DISTRO ] || { echo -e '\033[0;31mError: ROS is not sourced.\033[0m' &&
                           echo "to install ROS, visit: http://wiki.ros.org/melodic/Installation/Ubuntu" &&
                           sleep 3 && exit 1 ; }
@@ -27,7 +27,7 @@ mkdir -p ~/IAN/ian_ws/src
 cd ~/IAN/ian_ws
 catkin config --merge-devel
 catkin config --extend /opt/ros/$ROS_DISTRO
-catkin config -DCMAKE_BUILD_TYPE=Release
+catkin config -DCMAKE_BUILD_TYPE=Release -DPYTHON_EXECUTABLE=/usr/bin/python3
 cd src
 git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --branch noetic
 ```
@@ -36,7 +36,7 @@ git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --b
 # apt-get Dependencies
 # (Ensure dependencies listed in dependencies.rosinstall get cloned correctly)
 sudo apt -y install autoconf build-essential libtool
-sudo apt -y install ros-$ROS_DISTRO-pepper-* ros-$ROS_DISTRO-naoqi-driver
+#sudo apt -y install ros-$ROS_DISTRO-pepper-* ros-$ROS_DISTRO-naoqi-driver
 sudo apt -y install ros-$ROS_DISTRO-joy
 sudo apt -y install ros-$ROS_DISTRO-costmap-converter
 sudo apt -y install ros-$ROS_DISTRO-move-base ros-$ROS_DISTRO-teb-local-planner
