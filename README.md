@@ -290,7 +290,24 @@ here's an example launch file for running IAN on our robot:
 </launch>
 ```
 
+launch file arguments:
+- **mapname**: the name of your map file (without extension)
+- **mapfolder**: the folder where your map can be found
+- **script_args**: Extra arguments, often experimental. Possible arguments can be shown by typing ```roscd ia_ros && scripts/ros_ia_node --help```
+- **ia_downsampling_passes**: how many times to halve the reference map resolution for IAN planning. Lower resolution requires less memory, but may miss narrow corridors.
+- **localization**: in the default setting (true), the SLAM map is compared to the reference map to find where the robot is. If [map_matcher](github.com/danieldugas/map_matcher) always fails to localize in your map, you may try to set localization to false, and IAN will try to plan directly in the SLAM map (experimental!)
+  
+here's a truncated graph of the IAN node input and output topics.
 
 ![IAN node graph](ia_planner_node_graph.png "IAN node graph")
+
+- **/tf**: nothing special to do here, this topic usually exists as long as ROS is running
+- **/rwth_tracker/tracked_persons**: defined [here](https://github.com/ethz-asl/interaction_actions_for_navigation/blob/master/external/frame_msgs/msg/TrackedPersons.msg) and [there](https://github.com/ethz-asl/interaction_actions_for_navigation/blob/master/external/frame_msgs/msg/TrackedPerson.msg). This is the output of your person-tracking system.
+- **/move_base_simple/goal**: [geometry_msgs/PoseStamped](http://docs.ros.org/en/melodic/api/geometry_msgs/html/msg/PoseStamped.html). Can be easily published by running rviz, pressing the 'g' key and clicking somewhere on the map.
+
+also, the behavior nodes typically also subscribe to the same topics, and in addition:
+- **/combined_scans**: [sensor_msgs/LaserScan](http://docs.ros.org/en/noetic/api/sensor_msgs/html/msg/LaserScan.html), a 360 degree LiDAR scan message (in our case, the combined sensor data from two 270 degree LiDAR sensors)
+- **/pepper_robot/odom**: [nav_msgs/Odometry](http://docs.ros.org/en/noetic/api/nav_msgs/html/msg/Odometry.html), the odometry from the robot wheels
+It is recommended to check the output of the command ```roswtf``` to make sure that all nodes' inputs are correctly connected.
 
 
