@@ -1,6 +1,6 @@
 # interaction_actions_for_navigation
 
-![Ian illustration](https://github.com/ethz-asl/interaction_actions_for_navigation/blob/master/ian_toy_example.png "IAN Illustration")
+![Ian illustration](ian_toy_example.png "IAN Illustration")
 
 ## Install
 
@@ -289,5 +289,8 @@ here's an example launch file for running IAN on our robot:
   <node type="rviz" name="rviz" pkg="rviz" args="-d $(env HOME)/.rviz/ia.rviz" output="log"/>
 </launch>
 ```
+
+
+![IAN node graph](ia_planner_node_graph.png "IAN node graph")
 
 

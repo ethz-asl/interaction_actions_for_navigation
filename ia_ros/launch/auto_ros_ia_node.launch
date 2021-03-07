@@ -3,7 +3,7 @@
   <arg name="mapname" default="unity_scene_map" />
   <arg name="mapfolder" default="$(find asl_pepper_gmapping)/../maps"/>
   <arg name="script_args" default=""/>
-  <arg name="ia_downsampling_passes" default="1"/>
+  <arg name="ia_downsampling_passes" default="2"/>
   <arg name="localization" default="false"/>  <!-- if disabled uses g.t. loc from sim -->
   <arg name="scenario" default="unitytest"/>
   <arg name="max_runtime" default="300" />
