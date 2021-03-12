@@ -253,6 +253,7 @@ here's an example launch file for running IAN on our robot:
     args="$(arg script_args)" launch-prefix="" >
     <remap from="/tracked_persons" to="/rwth_tracker/tracked_persons" />
     <param name="reference_map_name" value="$(arg mapname)"/>
+    <param name="reference_map_folder" value="$(arg mapfolder)"/>
     <param name="reference_map_downsampling_passes" value="$(arg ia_downsampling_passes)"/>
   </node>
 
