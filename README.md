@@ -1,6 +1,6 @@
 # interaction_actions_for_navigation
 
-![Ian illustration](https://github.com/ethz-asl/interaction_actions_for_navigation/blob/master/ian_toy_example.png "IAN Illustration")
+[![Ian illustration](https://github.com/ethz-asl/interaction_actions_for_navigation/blob/master/ian_toy_example.png "IAN Illustration")](https://www.youtube.com/watch?v=qbzbXufX6V4)
 
 ## Install
 
