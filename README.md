@@ -3,6 +3,7 @@
 News: the video of the IROS presentation is now available
 [![Ian illustration](media/ian_iros_thumbnail.png "IAN Illustration")](https://www.youtube.com/watch?v=qbzbXufX6V4)
 
+Paper: [pdf](http://ras.papercept.net/images/temp/IROS/files/1703.pdf)
 ## Install
 
 <details>
