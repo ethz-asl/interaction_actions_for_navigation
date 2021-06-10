@@ -1,4 +1,4 @@
-# interaction_actions_for_navigation
+# IAN
 
 News: the video of the IROS presentation is now available
 [![Ian illustration](media/ian_iros_thumbnail.png "IAN Illustration")](https://www.youtube.com/watch?v=qbzbXufX6V4)
