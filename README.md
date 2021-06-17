@@ -297,4 +297,15 @@ here's an example launch file for running IAN on our robot:
 </launch>
 ```
 
+## Introspecting IAN: Using `ia_dashboard`
 
+![image of IAN dashboard](media/ia_dashboard.png "IAN Dashboard")
+
+`ia_dashboard` is a GUI tool which allows you to look deeper at what IAN did and why.
+It can show you state features at various points in time, the resulting plan, and can emulate the planning process live based on the state at a chosen point-in-time. Here's how to use it:
+
+1. Enable the exporting of logs, by passing the `--export-logs` parameter to the python executable. For example: in the above simulated example, add `roslaunch ia_ros auto_ros_ia_node.launch script_args:="--export-logs"`. Logs will be saved to the folder `/tmp/ros_ia_node_[CURRENT DATE AND TIME]`.
+2. During / After the run, in a terminal, execute `rosrun ia_ros ia_dashboard`
+3. By default the log for the latest run is selected. You can change the selected log by pressing on the log directory name button ( red 1 on the above image).
+4. Click the timeline to select a given time-point for which to display the state. You can also use the buttons at either end of the timeline to move  backward and forward in time by a single snapshot. The Play/Pause button (red 2) can be used to keep the latest snapshot always in focus, which is useful when the planner is still running.
+5. The P button (red 3) emulates the planning process for the selected snapshot. Pressing it will run the Monte Carlo Tree Search IAN planner (with 10, 100, 1000, or 10000 samples depending on the sample-selector button on the right of the P button). After the planning is complete, the results will be plotted (two rightmost windows in the above image).
