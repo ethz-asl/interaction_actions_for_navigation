@@ -34,7 +34,7 @@ if __name__ == "__main__":
 
     print("filtered to {} scenarios in {}".format(len(filtered_scenarios), args.scenario_folder))
     print("------------------------------------------------------------")
-    fig, axes = plt.subplots(2, len(filtered_scenarios)/2)
+    fig, axes = plt.subplots(2, len(filtered_scenarios)//2)
     fig.subplots_adjust(hspace=0.3, wspace=0)
     axes = np.array(axes).flatten()
     fixed_state = None

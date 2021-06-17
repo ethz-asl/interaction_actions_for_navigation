@@ -1,5 +1,6 @@
 import argparse
 import os
+from pkg_resources import resource_filename
 
 try:
     import rospy
@@ -34,8 +35,9 @@ def parse_sim_args():
 
 
 def populate_sim_args(parser):
-    argscriptdir = os.path.dirname(os.path.realpath(__file__))
-    parser.add_argument('--map-folder', type=str, default=os.path.join(argscriptdir, "../maps"),)
+    maps_path = resource_filename('pyIA', 'maps')
+    scenarios_path = resource_filename('pyIA', 'scenarios')
+    parser.add_argument('--map-folder', type=str, default=maps_path,)
     parser.add_argument('--map-name', type=str, default="asl",)
     parser.add_argument('--map-downsampling-passes', type=int, default=0,)
     # planning args
@@ -46,11 +48,7 @@ def populate_sim_args(parser):
     single_action.add_argument('--only-say', action='store_true',)
     single_action.add_argument('--only-nudge', action='store_true',)
     # scenario args
-    parser.add_argument(
-        '--scenario-folder',
-        type=str,
-        default=os.path.join(argscriptdir, "../scenarios"),
-    )
+    parser.add_argument('--scenario-folder', type=str, default=scenarios_path,)
     parser.add_argument(
         '--scenario',
         type=str,

@@ -16,4 +16,8 @@ __pycache__/
 *.out
 build/
 
-*.egg-info/
+pyIA.egg-info/
+
+*.prof
+*.html
+cia.c

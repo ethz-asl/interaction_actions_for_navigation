@@ -119,6 +119,7 @@ catkin config --extend /opt/ros/$ROS_DISTRO
 catkin config -DCMAKE_BUILD_TYPE=Release
 cd src
 git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --branch python2
+git clone https://github.com/danieldugas/asl_pepper_public.git
 ```
 
 ```bash

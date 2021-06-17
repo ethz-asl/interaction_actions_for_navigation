@@ -1,0 +1,3 @@
+include cIA/cia.pyx
+include pyIA/maps/*
+include pyIA/scenarios/*
