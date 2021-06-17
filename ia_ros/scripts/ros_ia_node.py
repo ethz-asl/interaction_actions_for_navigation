@@ -19,13 +19,15 @@ from timeit import default_timer as timer
 import traceback
 from visualization_msgs.msg import Marker, MarkerArray
 import datetime
+from nav_msgs.msg import OccupancyGrid
 
 from pyIA import ia_planning
 import pyIA.actions as actions
 from pyIA import state_estimation
-from cia import apply_value_operations_to_state, CTaskState
+from cia import apply_value_operations_to_state, CTaskState, kStateFeatures
 
 VISUALIZE_STATE = False
+PUBLISH_STATE_RVIZ = True
 
 GOAL_INFLATION_RADIUS = 0.2
 TASK_ALOTTED_TIME_INFLATION = 1.3
@@ -37,8 +39,6 @@ IA_SKILLS = [
     actions.Nudge(),
 ]
 
-PLANNING_LOG = False
-PLAN_EXECUTION_LOG = False
 RUN_NUMBER = datetime.datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
 LOG_DIR = "/tmp/ros_ia_node_{}/".format(RUN_NUMBER)
 PLANNING_LOG_DIR = os.path.join(LOG_DIR, 'planning/')
@@ -60,12 +60,21 @@ def shutdown_if_fail(function):
 # STATE ESTIMATOR ----------
 class IAStateEstimationNodelet(object):
     def __init__(self, parent):
+        # variables
         self.fixed_state = None
         self.latest_state_estimate = None
         self.latest_state_estimate_time = None
         self.latest_state_estimate_goal_xy_in_refmap = None
         self.latest_state_estimate_is_stale_flag = False
         self.lock = threading.Lock()  # for avoiding race conditions
+        # publishers
+        self.state_publishers = {}
+        for name in kStateFeatures.keys():
+            self.state_publishers[name] = rospy.Publisher(
+                "/ros_ia_node/debug/state_" + name, OccupancyGrid, queue_size=1)
+            unc = "_uncertainty"
+            self.state_publishers[name+unc] = rospy.Publisher(
+                "/ros_ia_node/debug/state_" + name + unc, OccupancyGrid, queue_size=1)
 
     def tracked_persons_update(self, msg, pose2d_tracksframe_in_refmap, map_8ds,
                                robot_pos_in_refmap, robot_radius, robot_goal_xy_in_refmap,
@@ -115,6 +124,26 @@ class IAStateEstimationNodelet(object):
             self.latest_state_estimate,
             update_stencil
         )
+
+    def publish_state_rviz(self, refmap_frame, hide_uncertain=True):
+        if not PUBLISH_STATE_RVIZ:
+            return
+        state = self.latest_state_estimate
+        fixed_state = self.fixed_state
+        for feature_name in kStateFeatures.keys():
+            val_grid = 1. * state.grid_features_values()[kStateFeatures[feature_name], :]
+            unc_grid = 1. * state.grid_features_uncertainties()[kStateFeatures[feature_name], :]
+            if hide_uncertain:
+                val_grid[np.greater_equal(
+                    state.grid_features_uncertainties()[kStateFeatures[feature_name], :],
+                    1.)] = np.nan
+            val_grid[fixed_state.map.occupancy() > fixed_state.map.thresh_occupied()] = np.nan
+            unc_grid[fixed_state.map.occupancy() > fixed_state.map.thresh_occupied()] = np.nan
+            val_msg = numpy_to_occupancy_grid_msg(val_grid, fixed_state.map, refmap_frame)
+            unc_msg = numpy_to_occupancy_grid_msg(unc_grid, fixed_state.map, refmap_frame)
+            unc = "_uncertainty"
+            self.state_publishers[feature_name].publish(val_msg)
+            self.state_publishers[feature_name + unc].publish(unc_msg)
 
 # PLANNER ------------------
 
@@ -170,7 +199,8 @@ class IAPlanningNode(object):
             mapfolder, mapname, mapframe, self.kRobotFrame,
             refmap_update_callback=refmap_update_callback,
         )
-        self.plan_executor_node = PlanExecutorNodelet(self.kRobotRadius, self.refmap_manager)
+        self.plan_executor_node = PlanExecutorNodelet(self.kRobotRadius, self.refmap_manager,
+                                                      export_logs=self.args.export_logs)
         self.plan_executor_node.STOP = self.STOP
         self.plan_executor_node.replan_flag = self.replan_due_to_new_goal_flag  # hacky
         # callback
@@ -299,6 +329,7 @@ class IAPlanningNode(object):
             self.refmap_manager.map_8ds,
             robot_pos_in_refmap, robot_radius, robot_goal_xy_in_refmap,
         )
+        self.state_estimator_node.publish_state_rviz(self.refmap_manager.kRefMapFrame)
 
     @shutdown_if_fail
     def global_goal_callback(self, msg):  # x y is in the global map frame
@@ -399,7 +430,7 @@ class IAPlanningNode(object):
                 toc - tic, self.args.n_trials, planning_goal, stamp))
 
         # write to planning log
-        if PLANNING_LOG:
+        if self.args.export_logs:
             tic = timer()
             planning_log = {
                 "state_e_stamp": se_stamp,
@@ -561,12 +592,13 @@ class IAPlanningNode(object):
 
 
 class PlanExecutorNodelet(object):
-    def __init__(self, robot_radius, refmap_manager):
+    def __init__(self, robot_radius, refmap_manager, export_logs=False):
         # needed external state (read only)
         self.refmap_manager = refmap_manager
         self.kRobotRadius = robot_radius
         self.STOP = True
         # Constants
+        self.export_logs = export_logs
         self.kWaypointRadius = 0.3
         self.kWaypointDist_m = {"Intend": 3, "Say": 3, "Nudge": 1.5}
         # self state
@@ -681,6 +713,7 @@ class PlanExecutorNodelet(object):
             # apply update
             state_estimator_node.update_state_based_on_task_outcome(
                 closest_outcome_node, update_stencil.astype(np.float32))
+            state_estimator_node.publish_state_rviz(self.refmap_manager.kRefMapFrame)
             self.finish_and_log_task(
                 state_estimator_node, success=assume_succeeded, stopped_early=False)
             self.progress_in_plan = closest_outcome_node.id
@@ -699,7 +732,7 @@ class PlanExecutorNodelet(object):
             else:
                 self.progress_in_plan = plan["plan_stochastic_tree"].root_nodes[0]
 #                 rospy.loginfo(plan_as_string(plan))
-            if PLAN_EXECUTION_LOG:
+            if self.export_logs:
                 plan_stamp = None
                 if plan is not None:
                     plan_stamp = plan["stamp"]
@@ -974,3 +1007,23 @@ def plan_as_string(plan):
             valstr = str(val) + "\n"
         string += ": " + valstr
     return string
+
+def numpy_to_occupancy_grid_msg(arr, ref_map2d, frame_id, time=None):
+    if not len(arr.shape) == 2:
+        raise TypeError('Array must be 2D')
+    arr = arr.T * 100.
+    if not arr.dtype == np.int8:
+        arr = arr.astype(np.int8)
+    if time is None:
+        time = rospy.Time.now()
+    grid = OccupancyGrid()
+    grid.header.frame_id = frame_id
+    grid.header.stamp.secs = time.secs
+    grid.header.stamp.nsecs = time.nsecs
+    grid.data = arr.ravel()
+    grid.info.resolution = ref_map2d.resolution()
+    grid.info.height = arr.shape[0]
+    grid.info.width = arr.shape[1]
+    grid.info.origin.position.x = ref_map2d.origin[0]
+    grid.info.origin.position.y = ref_map2d.origin[1]
+    return grid
