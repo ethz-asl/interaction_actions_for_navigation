@@ -17,7 +17,10 @@ __pycache__/
 build/
 
 pyIA.egg-info/
+pyIAN.egg-info/
 
 *.prof
 *.html
 cia.c
+cia.cpp
+cia.so

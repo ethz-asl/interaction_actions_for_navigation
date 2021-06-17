@@ -119,7 +119,9 @@ catkin config --extend /opt/ros/$ROS_DISTRO
 catkin config -DCMAKE_BUILD_TYPE=Release
 cd src
 git clone https://github.com/ethz-asl/interaction_actions_for_navigation.git --branch python2
+# manually add external deps which would otherwise be installed as part of asl_pepper
 git clone https://github.com/danieldugas/asl_pepper_public.git
+git clone https://github.com/danieldugas/frame_msgs_public.git
 ```
 
 ```bash
@@ -150,7 +152,8 @@ pip install numba==0.44 llvmlite==0.30
 ```bash
 # Python dependencies
 source ~/IAN/ianvenv/bin/activate
-cd ~/IAN/ian_ws/src/interaction_actions_for_navigation/external/asl_pepper/asl_pepper_2d_simulator/python
+catkin build asl_pepper_2d_simulator
+roscd asl_pepper_2d_simulator/python
 pip install -e .
 cd ~/IAN/ian_ws/src
 { python -c "import pyniel" && cd ~/Documents/pyniel && echo "Existing pyniel found." ; } || \
@@ -212,7 +215,8 @@ catkin build ia_ros
 ```bash
 source ~/IAN/ianvenv/bin/activate
 source ~/IAN/ian_ws/devel/setup.bash
-rviz -d ~/IAN/ian_ws/src/interaction_actions_for_navigation/external/asl_pepper/rviz/ia_sim.rviz &> /tmp/rviz-log &
+roscd asl_pepper_2d_simulator/..
+rviz -d ./rviz/ia_sim.rviz &> /tmp/rviz-log &
 roslaunch ia_ros auto_ros_ia_node.launch
 ```
 
