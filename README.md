@@ -151,8 +151,9 @@ pip install numba==0.44 llvmlite==0.30
 
 ```bash
 # Python dependencies
-source ~/IAN/ianvenv/bin/activate
 catkin build asl_pepper_2d_simulator
+source ~/IAN/ian_ws/devel/setup.bash
+source ~/IAN/ianvenv/bin/activate
 roscd asl_pepper_2d_simulator/python
 pip install -e .
 cd ~/IAN/ian_ws/src
