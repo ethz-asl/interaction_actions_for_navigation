@@ -930,6 +930,7 @@ class PlanExecutorNodelet(object):
             self.task_being_executed = None
             self.current_waypoint_index = 0
             success_str = "(success)" if success else "(failure)"
+            success_str = "(stopped)" if stopped_early else success_str
             msg_str = "Finished task {}".format(success_str) 
             rospy.loginfo(msg_str)
             self.taskevent_pub.publish(String(msg_str))
