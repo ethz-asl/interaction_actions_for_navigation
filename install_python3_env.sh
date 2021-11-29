@@ -6,4 +6,6 @@ pip install .
 cp ~/Code/pepper_ws/src/navrep/external/frame_msgs ~/pepper3venv/lib/python3.6/site-packages/ -r
 cp ~/Code/pepper_ws/src/interaction_actions_for_navigation/external/rwth_perception_people_msgs ~/pepper3venv/lib/python3.6/site-packages/ -r
 cp ~/Code/pepper_ws/src/interaction_actions_for_navigation/external/darknet_ros_msgs ~/pepper3venv/lib/python3.6/site-packages/ -r
+cp ~/Code/pepper_ws/src/interaction_actions_for_navigation/external/vision_msgs ~/pepper3venv/lib/python3.6/site-packages/ -r
+cp ~/Code/pepper_ws/src/interaction_actions_for_navigation/external/object_detection ~/pepper3venv/lib/python3.6/site-packages/ -r
 

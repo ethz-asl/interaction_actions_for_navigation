@@ -389,12 +389,19 @@ class IAPlanningNode(object):
             planning_goal = self.goal_ij_in_refmap
             planning_goal_xy = self.goal_xy_in_refmap
             if planning_goal is None:
+                rospy.logwarn_throttle(
+                    5., "IA: Goal not set yet. Waiting for global goal message.")
                 return
         # receive info from state estimator
         state_e, fixed_state, state_goal_xy, se_stamp = self.state_estimator_node.get_state_estimate()
         if state_e is None:
+            rospy.logwarn_throttle(
+                5., "IA: State estimate not available yet. Waiting for state estimate \
+                (are tracked persons being published?).")
             return
         if not np.allclose(state_goal_xy, planning_goal_xy):
+            rospy.logwarn_throttle(
+                5., "IA: State estimate goal not equal to planning goal. Waiting for updated state estimate.")
             return
 
         # run planner, MCTS, get plan
@@ -403,6 +410,7 @@ class IAPlanningNode(object):
         messages = []
         optimistic_sequence = []
         try:
+            rospy.loginfo_once("Planning...")
             byproducts = {}
             plan_stochastic_tree, optimistic_sequence, firstfailure_sequence = \
                 ia_planning.plan(state_e, fixed_state, possible_actions,
